@@ -868,6 +868,7 @@ dependencies = [
  "base64 0.13.0",
  "blake3",
  "keri",
+ "nom",
  "serde",
  "serde-hex",
  "serde_json",

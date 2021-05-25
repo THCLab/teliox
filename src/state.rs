@@ -1,9 +1,14 @@
-use keri::state::EventSemantics;
-
 use crate::error::Error;
 
-pub trait State<E: EventSemantics> {
-    fn apply(&self, event: E) -> Result<Self, Error>
+pub trait State<E: Event> {
+    fn apply(&self, event: &E) -> Result<Self, Error>
     where
         Self: Sized;
+}
+
+pub trait Event {
+}
+
+pub trait Attachement {
+    
 }
