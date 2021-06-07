@@ -6,9 +6,6 @@ pub trait State<E: Event> {
         Self: Sized;
 }
 
-pub trait Event {
-}
+pub trait Event {}
 
-pub trait Attachement {
-    
-}
+pub trait Attachement {}

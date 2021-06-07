@@ -1,5 +1,12 @@
-use crate::{error::Error, state::{Event, State}};
-use keri::{event::sections::seal::EventSeal, event_message::serialization_info::SerializationInfo, prefix::{IdentifierPrefix, SelfAddressingPrefix}};
+use crate::{
+    error::Error,
+    state::{Event, State},
+};
+use keri::{
+    event::sections::seal::EventSeal,
+    event_message::serialization_info::SerializationInfo,
+    prefix::{IdentifierPrefix, SelfAddressingPrefix},
+};
 use serde::{Deserialize, Serialize};
 use serde_hex::{Compact, SerHex};
 
@@ -91,9 +98,17 @@ fn test_event() -> Result<(), Error> {
     let eventt: VCEvent = serde_json::from_str(example).unwrap();
 
     assert_eq!(eventt.serialization_info, "KERI10JSON00011c_".parse()?);
-    assert_eq!(eventt.prefix, "Ezpq06UecHwzy-K9FpNoRxCJp2wIGM9u2Edk-PLMZ1H4".parse()?);
+    assert_eq!(
+        eventt.prefix,
+        "Ezpq06UecHwzy-K9FpNoRxCJp2wIGM9u2Edk-PLMZ1H4".parse()?
+    );
     assert_eq!(eventt.sn, 0);
-    assert_eq!(eventt.event_type, EventType::Iss(SimpleIssuance{ registry_id: "ELh3eYC2W_Su1izlvm0xxw01n3XK8bdV2Zb09IqlXB7A".parse()?}));
+    assert_eq!(
+        eventt.event_type,
+        EventType::Iss(SimpleIssuance {
+            registry_id: "ELh3eYC2W_Su1izlvm0xxw01n3XK8bdV2Zb09IqlXB7A".parse()?
+        })
+    );
 
     assert_eq!(serde_json::to_string(&eventt).unwrap(), example);
     Ok(())
