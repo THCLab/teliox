@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_hex::{Compact, SerHex};
 
 use keri::{
+    derivation::self_addressing::SelfAddressing,
     event::SerializationFormats,
     event_message::serialization_info::SerializationInfo,
     prefix::{IdentifierPrefix, SelfAddressingPrefix},
@@ -14,6 +15,8 @@ use crate::{
 
 #[derive(Default, PartialEq)]
 pub struct ManagerTelState {
+    sn: u64,
+    last: Vec<u8>,
     issuer: IdentifierPrefix,
     backers: Option<Vec<IdentifierPrefix>>,
 }
@@ -90,30 +93,44 @@ impl ManagerTelEvent {
                         Some(vcp.backers.clone())
                     };
                     Ok(ManagerTelState {
+                        sn: 0,
+                        last: self.serialize()?,
                         issuer: vcp.issuer_id.clone(),
                         backers,
                     })
                 }
             }
-            ManagerEventType::Vrt(ref vrt) => match state.backers {
-                Some(ref backers) => {
-                    let mut new_backers: Vec<IdentifierPrefix> = backers
-                        .iter()
-                        .filter(|backer| !backers.contains(backer))
-                        .map(|x| x.to_owned())
-                        .collect();
-                    vrt.backers_to_add
-                        .iter()
-                        .for_each(|ba| new_backers.push(ba.to_owned()));
-                    Ok(ManagerTelState {
-                        backers: Some(new_backers),
-                        issuer: state.issuer.clone(),
-                    })
+            ManagerEventType::Vrt(ref vrt) => {
+                if state.sn + 1 == self.sn {
+                    if vrt.prev_event.verify_binding(&state.last) {
+                        match state.backers {
+                            Some(ref backers) => {
+                                let mut new_backers: Vec<IdentifierPrefix> = backers
+                                    .iter()
+                                    .filter(|backer| !backers.contains(backer))
+                                    .map(|x| x.to_owned())
+                                    .collect();
+                                vrt.backers_to_add
+                                    .iter()
+                                    .for_each(|ba| new_backers.push(ba.to_owned()));
+                                Ok(ManagerTelState {
+                                    sn: self.sn,
+                                    last: self.serialize()?,
+                                    backers: Some(new_backers),
+                                    issuer: state.issuer.clone(),
+                                })
+                            }
+                            None => Err(Error::Generic(
+                                "Trying to update backers of backerless state".into(),
+                            )),
+                        }
+                    } else {
+                        Err(Error::Generic("Previous event doesn't match".to_string()))
+                    }
+                } else {
+                    Err(Error::Generic("Improper event sn".into()))
                 }
-                None => Err(Error::Generic(
-                    "Trying to update backers of backerless state".into(),
-                )),
-            },
+            }
         }
     }
 }
@@ -206,5 +223,69 @@ fn test_serialization() -> Result<(), Error> {
 
 #[test]
 fn test_apply_to() -> Result<(), Error> {
+    // construct inception event
+    let pref: IdentifierPrefix = "EVohdnN33-vdNOTPYxeTQIWVzRKtzZzBoiBSGYSSnD0s".parse()?;
+    let issuer_pref: IdentifierPrefix = "DntNTPnDFBnmlO6J44LXCrzZTAmpe-82b7BmQGtL4QhM".parse()?;
+    let event_type = ManagerEventType::Vcp(Inc {
+        issuer_id: issuer_pref.clone(),
+        config: vec![],
+        backer_threshold: 1,
+        backers: vec![],
+    });
+    let vcp = ManagerTelEvent::new(pref.clone(), 0, event_type, SerializationFormats::JSON)?;
+
+    let state = ManagerTelState::default();
+    let state = vcp.apply_to(&state)?;
+    assert_eq!(state.issuer, issuer_pref);
+    assert_eq!(state.backers.clone().unwrap(), vec![]);
+
+    // Construct rotation event
+    let prev_event = SelfAddressing::Blake3_256.derive(&vcp.serialize()?);
+    let event_type = ManagerEventType::Vrt(Rot {
+        prev_event,
+        backers_to_add: vec!["EXvR3p8V95W8J7Ui4-mEzZ79S-A1esAnJo1Kmzq80Jkc".parse()?],
+        backers_to_remove: vec![],
+    });
+    let vrt = ManagerTelEvent::new(
+        pref.clone(),
+        1,
+        event_type.clone(),
+        SerializationFormats::JSON,
+    )?;
+    let state = vrt.apply_to(&state)?;
+    assert_eq!(state.backers.clone().unwrap().len(), 1);
+
+    // Try applying event with improper sn.
+    let out_of_order_vrt = ManagerTelEvent::new(pref.clone(), 10, event_type, SerializationFormats::JSON)?;
+    let err_state = out_of_order_vrt.apply_to(&state);
+    assert!(err_state.is_err());
+
+    // Try applying event with improper previous event
+    let prev_event = SelfAddressing::Blake3_256.derive(&vcp.serialize()?);
+    let event_type = ManagerEventType::Vrt(Rot {
+        prev_event,
+        backers_to_remove: vec![],
+        backers_to_add: vec![],
+    });
+    let bad_previous = ManagerTelEvent::new(pref.clone(), 2, event_type, SerializationFormats::JSON)?;
+    let err_state = bad_previous.apply_to(&state);
+    assert!(err_state.is_err());
+
+    // Construct next rotation event
+    let prev_event = SelfAddressing::Blake3_256.derive(&vrt.serialize()?);
+    let event_type = ManagerEventType::Vrt(Rot {
+        prev_event,
+        backers_to_remove: vec!["EXvR3p8V95W8J7Ui4-mEzZ79S-A1esAnJo1Kmzq80Jkc".parse()?],
+        backers_to_add: vec!["DSEpNJeSJjxo6oAxkNE8eCOJg2HRPstqkeHWBAvN9XNU".parse()?, "Dvxo-P4W_Z0xXTfoA3_4DMPn7oi0mLCElOWJDpC0nQXw".parse()?],
+    });
+    let vrt = ManagerTelEvent::new(
+        pref.clone(),
+        2,
+        event_type.clone(),
+        SerializationFormats::JSON,
+    )?;
+    let state = vrt.apply_to(&state)?;
+    assert_eq!(state.backers.clone().unwrap().len(), 2);
+
     Ok(())
 }
