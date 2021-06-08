@@ -223,7 +223,7 @@ fn test_serialization() -> Result<(), Error> {
 
 #[test]
 fn test_apply_to() -> Result<(), Error> {
-    // construct inception event
+    // Construct inception event
     let pref: IdentifierPrefix = "EVohdnN33-vdNOTPYxeTQIWVzRKtzZzBoiBSGYSSnD0s".parse()?;
     let issuer_pref: IdentifierPrefix = "DntNTPnDFBnmlO6J44LXCrzZTAmpe-82b7BmQGtL4QhM".parse()?;
     let event_type = ManagerEventType::Vcp(Inc {
