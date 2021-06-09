@@ -256,7 +256,8 @@ fn test_apply_to() -> Result<(), Error> {
     assert_eq!(state.backers.clone().unwrap().len(), 1);
 
     // Try applying event with improper sn.
-    let out_of_order_vrt = ManagerTelEvent::new(pref.clone(), 10, event_type, SerializationFormats::JSON)?;
+    let out_of_order_vrt =
+        ManagerTelEvent::new(pref.clone(), 10, event_type, SerializationFormats::JSON)?;
     let err_state = out_of_order_vrt.apply_to(&state);
     assert!(err_state.is_err());
 
@@ -267,7 +268,8 @@ fn test_apply_to() -> Result<(), Error> {
         backers_to_remove: vec![],
         backers_to_add: vec![],
     });
-    let bad_previous = ManagerTelEvent::new(pref.clone(), 2, event_type, SerializationFormats::JSON)?;
+    let bad_previous =
+        ManagerTelEvent::new(pref.clone(), 2, event_type, SerializationFormats::JSON)?;
     let err_state = bad_previous.apply_to(&state);
     assert!(err_state.is_err());
 
@@ -276,7 +278,10 @@ fn test_apply_to() -> Result<(), Error> {
     let event_type = ManagerEventType::Vrt(Rot {
         prev_event,
         backers_to_remove: vec!["EXvR3p8V95W8J7Ui4-mEzZ79S-A1esAnJo1Kmzq80Jkc".parse()?],
-        backers_to_add: vec!["DSEpNJeSJjxo6oAxkNE8eCOJg2HRPstqkeHWBAvN9XNU".parse()?, "Dvxo-P4W_Z0xXTfoA3_4DMPn7oi0mLCElOWJDpC0nQXw".parse()?],
+        backers_to_add: vec![
+            "DSEpNJeSJjxo6oAxkNE8eCOJg2HRPstqkeHWBAvN9XNU".parse()?,
+            "Dvxo-P4W_Z0xXTfoA3_4DMPn7oi0mLCElOWJDpC0nQXw".parse()?,
+        ],
     });
     let vrt = ManagerTelEvent::new(
         pref.clone(),
