@@ -2,7 +2,6 @@ use serde::{Deserialize, Serialize};
 use serde_hex::{Compact, SerHex};
 
 use keri::{
-    derivation::self_addressing::SelfAddressing,
     event::SerializationFormats,
     event_message::serialization_info::SerializationInfo,
     prefix::{IdentifierPrefix, SelfAddressingPrefix},
@@ -135,8 +134,8 @@ impl ManagerTelEvent {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct ManagerIdentifier {}
+// #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+// pub struct ManagerIdentifier {}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(tag = "t", rename_all = "lowercase")]
@@ -223,6 +222,7 @@ fn test_serialization() -> Result<(), Error> {
 
 #[test]
 fn test_apply_to() -> Result<(), Error> {
+    use keri::derivation::self_addressing::SelfAddressing;
     // Construct inception event
     let pref: IdentifierPrefix = "EVohdnN33-vdNOTPYxeTQIWVzRKtzZzBoiBSGYSSnD0s".parse()?;
     let issuer_pref: IdentifierPrefix = "DntNTPnDFBnmlO6J44LXCrzZTAmpe-82b7BmQGtL4QhM".parse()?;
