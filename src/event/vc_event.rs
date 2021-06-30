@@ -1,4 +1,4 @@
-use crate::{error::Error, state::Event};
+use crate::error::Error;
 use chrono::{DateTime, FixedOffset, Local, SecondsFormat};
 use keri::{
     event::{sections::seal::EventSeal, SerializationFormats},
@@ -7,6 +7,8 @@ use keri::{
 };
 use serde::{de, Deserialize, Serialize, Serializer};
 use serde_hex::{Compact, SerHex};
+
+use super::Event;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct TimestampedVCEvent {

@@ -8,28 +8,9 @@ use keri::{
     prefix::{IdentifierPrefix, SelfAddressingPrefix},
 };
 
-use crate::{
-    error::Error,
-    state::{Event, State},
-};
+use crate::{error::Error, state::ManagerTelState};
 
-#[derive(Default, PartialEq)]
-pub struct ManagerTelState {
-    pub prefix: IdentifierPrefix,
-    pub sn: u64,
-    pub last: Vec<u8>,
-    pub issuer: IdentifierPrefix,
-    pub backers: Option<Vec<IdentifierPrefix>>,
-}
-
-impl State<ManagerTelEvent> for ManagerTelState {
-    fn apply(&self, event: &ManagerTelEvent) -> Result<Self, Error>
-    where
-        Self: Sized,
-    {
-        event.apply_to(self)
-    }
-}
+use super::Event;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ManagerTelEvent {

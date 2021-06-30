@@ -1,7 +1,5 @@
-use crate::{
-    attached_seal::AttachedSourceSeal, error::Error, manager_tel::ManagerTelEvent,
-    vc_event::VCEvent,
-};
+use crate::seal::AttachedSourceSeal;
+use crate::{error::Error, event::manager_event::ManagerTelEvent, event::vc_event::VCEvent};
 
 pub struct VerifiableTelEvent {
     event: VCEvent,

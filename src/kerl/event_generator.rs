@@ -7,8 +7,8 @@ use keri::{
         Event, EventMessage, SerializationFormats,
     },
     event_message::event_msg_builder::{EventMsgBuilder, EventType},
-    prefix::{BasicPrefix, IdentifierPrefix},
-    signer::{CryptoBox, KeyManager},
+    prefix::IdentifierPrefix,
+    signer::KeyManager,
     state::IdentifierState,
 };
 
@@ -34,7 +34,10 @@ impl Key {
     // }
 }
 
-pub fn make_icp(km: &KeyManager, prefix: Option<IdentifierPrefix>) -> Result<EventMessage, Error> {
+pub fn make_icp(
+    km: &dyn KeyManager,
+    prefix: Option<IdentifierPrefix>,
+) -> Result<EventMessage, Error> {
     let key_prefix = vec![Basic::Ed25519.derive(km.public_key())];
     let pref = prefix.unwrap_or(IdentifierPrefix::Basic(key_prefix[0].clone()));
     let nxt_key_prefix = vec![Basic::Ed25519.derive(km.next_public_key())];
@@ -46,7 +49,7 @@ pub fn make_icp(km: &KeyManager, prefix: Option<IdentifierPrefix>) -> Result<Eve
     Ok(icp)
 }
 
-pub fn make_rot(km: &KeyManager, state: IdentifierState) -> Result<EventMessage, Error> {
+pub fn make_rot(km: &dyn KeyManager, state: IdentifierState) -> Result<EventMessage, Error> {
     let key_prefix = vec![Basic::Ed25519.derive(km.public_key())];
     let nxt_key_prefix = vec![Basic::Ed25519.derive(km.next_public_key())];
     let ixn = EventMsgBuilder::new(EventType::Rotation)?
@@ -93,8 +96,8 @@ pub fn make_ixn_with_event_seal(
 
 pub fn make_rct(
     event: EventMessage,
-    validator_seal: EventSeal,
-    state: IdentifierState,
+    _validator_seal: EventSeal,
+    _state: IdentifierState,
 ) -> Result<EventMessage, Error> {
     let ser = event.serialize()?;
     let rcp = Event {

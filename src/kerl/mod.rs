@@ -1,12 +1,8 @@
 // use event_generator::{Key, KeyType};
 use keri::{
-    database::{sled::SledEventDatabase, EventDatabase},
+    database::sled::SledEventDatabase,
     derivation::self_signing::SelfSigning,
-    event::{
-        event_data::EventData,
-        sections::seal::{EventSeal, Seal},
-        EventMessage,
-    },
+    event::{event_data::EventData, sections::seal::EventSeal, EventMessage},
     event_message::parse::signed_message,
     event_message::parse::{signed_event_stream, Deserialized},
     event_message::SignedEventMessage,
@@ -17,10 +13,7 @@ use keri::{
     state::IdentifierState,
 };
 
-use crate::{
-    error::Error,
-    kerl::event_generator::{Key, KeyType},
-};
+use crate::error::Error;
 pub mod event_generator;
 
 pub struct KERL<'d> {
@@ -61,8 +54,6 @@ impl<'d> KERL<'d> {
     }
 
     pub fn incept<K: KeyManager>(&mut self, key_manager: &K) -> Result<SignedEventMessage, Error> {
-        let pk = Key::new(key_manager.public_key().key(), KeyType::Ed25519Sha512);
-        let next_pk = Key::new(key_manager.next_public_key().key(), KeyType::Ed25519Sha512);
         let icp = event_generator::make_icp(key_manager, Some(self.prefix.clone())).unwrap();
 
         let sigged = icp.sign(vec![AttachedSignaturePrefix::new(
@@ -84,8 +75,6 @@ impl<'d> KERL<'d> {
         key_manager: &mut K,
     ) -> Result<SignedEventMessage, Error> {
         key_manager.rotate()?;
-        let pk = Key::new(key_manager.public_key().key(), KeyType::Ed25519Sha512);
-        let next_pk = Key::new(key_manager.next_public_key().key(), KeyType::Ed25519Sha512);
         let rot = event_generator::make_rot(key_manager, self.get_state()?.unwrap()).unwrap();
 
         let rot = rot.sign(vec![AttachedSignaturePrefix::new(

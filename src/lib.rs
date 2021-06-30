@@ -1,10 +1,6 @@
-pub mod attached_seal;
 pub mod error;
+pub mod event;
 pub mod kerl;
-pub mod manager_tel;
-pub mod parse;
+pub mod seal;
 pub mod state;
 pub mod tel;
-pub mod vc_event;
-pub mod vc_state;
-pub mod verifiable_event;

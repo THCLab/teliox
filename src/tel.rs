@@ -8,10 +8,10 @@ use keri::{
 
 use crate::{
     error::Error,
-    manager_tel::{Config, Inc, ManagerEventType, ManagerTelEvent, ManagerTelState, Rot},
-    state::State,
-    vc_event::{EventType, Issuance, Revocation, VCEvent},
-    verifiable_event::{VerifiableManagementEvent, VerifiableTelEvent},
+    event::manager_event::{Config, Inc, ManagerEventType, ManagerTelEvent, Rot},
+    event::vc_event::{EventType, Issuance, Revocation, VCEvent},
+    event::verifiable_event::VerifiableManagementEvent,
+    state::{ManagerTelState, State},
 };
 
 pub struct Tel {
@@ -110,9 +110,10 @@ impl Tel {
         });
         let vc_prefix =
             IdentifierPrefix::SelfAddressing(SelfAddressing::Blake3_256.derive(vc.as_bytes()));
-        VCEvent::new(vc_prefix.clone(), 0, rev, self.serialization_format)
+        VCEvent::new(vc_prefix, 0, rev, self.serialization_format)
     }
 }
+#[cfg(test)]
 mod tests {
     use std::fs;
 
@@ -121,19 +122,17 @@ mod tests {
         derivation::self_addressing::SelfAddressing,
         event::{sections::seal::EventSeal, SerializationFormats},
         prefix::IdentifierPrefix,
-        processor::EventProcessor,
         signer::CryptoBox,
     };
 
     use crate::{
-        attached_seal::EventSourceSeal,
         error::Error,
+        event::manager_event::Config,
+        event::verifiable_event::{VerifiableManagementEvent, VerifiableTelEvent},
         kerl::KERL,
-        manager_tel::Config,
-        state::State,
+        seal::EventSourceSeal,
+        state::{vc_state::TelState, State},
         tel::Tel,
-        vc_state::TelState,
-        verifiable_event::{VerifiableManagementEvent, VerifiableTelEvent},
     };
 
     #[test]
