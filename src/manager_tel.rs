@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use serde_hex::{Compact, SerHex};
 
 use keri::{
+    derivation::{self_addressing::SelfAddressing, DerivationCode},
     event::SerializationFormats,
     event_message::serialization_info::SerializationInfo,
     prefix::{IdentifierPrefix, SelfAddressingPrefix},
@@ -14,10 +15,11 @@ use crate::{
 
 #[derive(Default, PartialEq)]
 pub struct ManagerTelState {
-    sn: u64,
-    last: Vec<u8>,
-    issuer: IdentifierPrefix,
-    backers: Option<Vec<IdentifierPrefix>>,
+    pub prefix: IdentifierPrefix,
+    pub sn: u64,
+    pub last: Vec<u8>,
+    pub issuer: IdentifierPrefix,
+    pub backers: Option<Vec<IdentifierPrefix>>,
 }
 
 impl State<ManagerTelEvent> for ManagerTelState {
@@ -50,8 +52,8 @@ pub struct ManagerTelEvent {
 impl Event for ManagerTelEvent {}
 
 impl ManagerTelEvent {
-    fn new(
-        prefix: IdentifierPrefix,
+    pub fn new(
+        prefix: &IdentifierPrefix,
         sn: u64,
         event_type: ManagerEventType,
         format: SerializationFormats,
@@ -67,7 +69,7 @@ impl ManagerTelEvent {
         let serialization_info = SerializationInfo::new(format, size);
         Ok(Self {
             serialization_info,
-            prefix,
+            prefix: prefix.to_owned(),
             sn,
             event_type,
         })
@@ -86,12 +88,13 @@ impl ManagerTelEvent {
                 if state != &ManagerTelState::default() {
                     Err(Error::Generic("Improper manager state".into()))
                 } else {
-                    let backers = if vcp.config.contains(&String::from("NB")) {
+                    let backers = if vcp.config.contains(&Config::NoBackers) {
                         None
                     } else {
                         Some(vcp.backers.clone())
                     };
                     Ok(ManagerTelState {
+                        prefix: self.prefix.to_owned(),
                         sn: 0,
                         last: self.serialize()?,
                         issuer: vcp.issuer_id.clone(),
@@ -113,6 +116,7 @@ impl ManagerTelEvent {
                                     .iter()
                                     .for_each(|ba| new_backers.push(ba.to_owned()));
                                 Ok(ManagerTelState {
+                                    prefix: self.prefix.to_owned(),
                                     sn: self.sn,
                                     last: self.serialize()?,
                                     backers: Some(new_backers),
@@ -145,28 +149,114 @@ pub enum ManagerEventType {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum Config {
+    #[serde(rename = "NB")]
+    NoBackers,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Inc {
     #[serde(rename = "ii")]
-    issuer_id: IdentifierPrefix,
+    pub issuer_id: IdentifierPrefix,
 
     #[serde(rename = "c")]
-    config: Vec<String>,
+    pub config: Vec<Config>,
 
     #[serde(rename = "bt", with = "SerHex::<Compact>")]
-    backer_threshold: u64,
+    pub backer_threshold: u64,
 
     // list of backer identifiers for credentials associated with this registry
     #[serde(rename = "b")]
-    backers: Vec<IdentifierPrefix>,
+    pub backers: Vec<IdentifierPrefix>,
+}
+
+// TODO do we need this here? It's from keriox mostly.
+/// Dummy Event
+///
+/// Used only to encapsulate the prefix derivation process for management inception (Vcp)
+#[derive(Serialize, Debug, Clone)]
+pub(crate) struct DummyEvent {
+    #[serde(rename = "v")]
+    serialization_info: SerializationInfo,
+    #[serde(rename = "i")]
+    prefix: String,
+    #[serde(rename = "s", with = "SerHex::<Compact>")]
+    sn: u8,
+    #[serde(flatten, rename = "t")]
+    data: ManagerEventType,
+}
+
+impl DummyEvent {
+    pub fn derive_inception_data(
+        vcp: Inc,
+        derivation: &SelfAddressing,
+        format: SerializationFormats,
+    ) -> Result<Vec<u8>, Error> {
+        Self::derive_data(ManagerEventType::Vcp(vcp), derivation, format)
+    }
+
+    fn derive_data(
+        data: ManagerEventType,
+        derivation: &SelfAddressing,
+        format: SerializationFormats,
+    ) -> Result<Vec<u8>, Error> {
+        Ok(Self {
+            serialization_info: SerializationInfo::new(
+                format,
+                Self {
+                    serialization_info: SerializationInfo::new(format, 0),
+                    prefix: Self::dummy_prefix(derivation),
+                    sn: 0,
+                    data: data.clone(),
+                }
+                .serialize()?
+                .len(),
+            ),
+            prefix: Self::dummy_prefix(derivation),
+            sn: 0,
+            data: data,
+        }
+        .serialize()?)
+    }
+
+    fn serialize(&self) -> Result<Vec<u8>, Error> {
+        self.serialization_info
+            .kind
+            .encode(&self)
+            .map_err(|e| Error::KeriError(e))
+    }
+
+    fn dummy_prefix(derivation: &SelfAddressing) -> String {
+        std::iter::repeat("#")
+            .take(derivation.code_len() + derivation.derivative_b64_len())
+            .collect::<String>()
+    }
+}
+
+impl Inc {
+    pub fn incept_self_addressing(
+        self,
+        derivation: &SelfAddressing,
+        format: SerializationFormats,
+    ) -> Result<ManagerTelEvent, Error> {
+        ManagerTelEvent::new(
+            &IdentifierPrefix::SelfAddressing(derivation.derive(
+                &DummyEvent::derive_inception_data(self.clone(), &derivation, format)?,
+            )),
+            0,
+            ManagerEventType::Vcp(self),
+            format,
+        )
+    }
 }
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Rot {
     #[serde(rename = "p")]
-    prev_event: SelfAddressingPrefix,
+    pub prev_event: SelfAddressingPrefix,
     #[serde(rename = "ba")]
-    backers_to_add: Vec<IdentifierPrefix>,
+    pub backers_to_add: Vec<IdentifierPrefix>,
     #[serde(rename = "br")]
-    backers_to_remove: Vec<IdentifierPrefix>,
+    pub backers_to_remove: Vec<IdentifierPrefix>,
 }
 
 #[test]
@@ -181,7 +271,7 @@ fn test_serialization() -> Result<(), Error> {
     assert_eq!(vcp.sn, 0);
     let expected_event_type = ManagerEventType::Vcp(Inc {
         issuer_id: "DntNTPnDFBnmlO6J44LXCrzZTAmpe-82b7BmQGtL4QhM".parse()?,
-        config: vec!["NB".to_string()],
+        config: vec![Config::NoBackers],
         backer_threshold: 0,
         backers: vec![],
     });
@@ -232,7 +322,7 @@ fn test_apply_to() -> Result<(), Error> {
         backer_threshold: 1,
         backers: vec![],
     });
-    let vcp = ManagerTelEvent::new(pref.clone(), 0, event_type, SerializationFormats::JSON)?;
+    let vcp = ManagerTelEvent::new(&pref, 0, event_type, SerializationFormats::JSON)?;
 
     let state = ManagerTelState::default();
     let state = vcp.apply_to(&state)?;
@@ -246,18 +336,12 @@ fn test_apply_to() -> Result<(), Error> {
         backers_to_add: vec!["EXvR3p8V95W8J7Ui4-mEzZ79S-A1esAnJo1Kmzq80Jkc".parse()?],
         backers_to_remove: vec![],
     });
-    let vrt = ManagerTelEvent::new(
-        pref.clone(),
-        1,
-        event_type.clone(),
-        SerializationFormats::JSON,
-    )?;
+    let vrt = ManagerTelEvent::new(&pref, 1, event_type.clone(), SerializationFormats::JSON)?;
     let state = vrt.apply_to(&state)?;
     assert_eq!(state.backers.clone().unwrap().len(), 1);
 
     // Try applying event with improper sn.
-    let out_of_order_vrt =
-        ManagerTelEvent::new(pref.clone(), 10, event_type, SerializationFormats::JSON)?;
+    let out_of_order_vrt = ManagerTelEvent::new(&pref, 10, event_type, SerializationFormats::JSON)?;
     let err_state = out_of_order_vrt.apply_to(&state);
     assert!(err_state.is_err());
 
@@ -268,8 +352,7 @@ fn test_apply_to() -> Result<(), Error> {
         backers_to_remove: vec![],
         backers_to_add: vec![],
     });
-    let bad_previous =
-        ManagerTelEvent::new(pref.clone(), 2, event_type, SerializationFormats::JSON)?;
+    let bad_previous = ManagerTelEvent::new(&pref, 2, event_type, SerializationFormats::JSON)?;
     let err_state = bad_previous.apply_to(&state);
     assert!(err_state.is_err());
 
@@ -283,14 +366,43 @@ fn test_apply_to() -> Result<(), Error> {
             "Dvxo-P4W_Z0xXTfoA3_4DMPn7oi0mLCElOWJDpC0nQXw".parse()?,
         ],
     });
-    let vrt = ManagerTelEvent::new(
-        pref.clone(),
-        2,
-        event_type.clone(),
-        SerializationFormats::JSON,
-    )?;
+    let vrt = ManagerTelEvent::new(&pref, 2, event_type.clone(), SerializationFormats::JSON)?;
     let state = vrt.apply_to(&state)?;
     assert_eq!(state.backers.clone().unwrap().len(), 2);
+
+    Ok(())
+}
+
+#[test]
+fn test_no_backers() -> Result<(), Error> {
+    use keri::derivation::self_addressing::SelfAddressing;
+    // Construct inception event
+    let pref: IdentifierPrefix = "EVohdnN33-vdNOTPYxeTQIWVzRKtzZzBoiBSGYSSnD0s".parse()?;
+    let issuer_pref: IdentifierPrefix = "DntNTPnDFBnmlO6J44LXCrzZTAmpe-82b7BmQGtL4QhM".parse()?;
+    let event_type = ManagerEventType::Vcp(Inc {
+        issuer_id: issuer_pref.clone(),
+        config: vec![Config::NoBackers],
+        backer_threshold: 1,
+        backers: vec![],
+    });
+    let vcp = ManagerTelEvent::new(&pref, 0, event_type, SerializationFormats::JSON)?;
+
+    let state = ManagerTelState::default();
+    let state = vcp.apply_to(&state)?;
+    assert_eq!(state.issuer, issuer_pref);
+    assert_eq!(state.backers, None);
+
+    // Construct rotation event
+    let prev_event = SelfAddressing::Blake3_256.derive(&vcp.serialize()?);
+    let event_type = ManagerEventType::Vrt(Rot {
+        prev_event,
+        backers_to_add: vec!["EXvR3p8V95W8J7Ui4-mEzZ79S-A1esAnJo1Kmzq80Jkc".parse()?],
+        backers_to_remove: vec![],
+    });
+    let vrt = ManagerTelEvent::new(&pref, 1, event_type.clone(), SerializationFormats::JSON)?;
+    // Try to update backers of backerless state.
+    let state = vrt.apply_to(&state);
+    assert!(state.is_err());
 
     Ok(())
 }

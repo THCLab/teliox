@@ -48,6 +48,12 @@ impl TimestampedVCEvent {
     }
 }
 
+impl From<TimestampedVCEvent> for VCEvent {
+    fn from(item: TimestampedVCEvent) -> Self {
+        item.event
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct VCEvent {
     #[serde(rename = "v")]
@@ -65,7 +71,7 @@ pub struct VCEvent {
 }
 
 impl VCEvent {
-    fn new(
+    pub fn new(
         prefix: IdentifierPrefix,
         sn: u64,
         event_type: EventType,
@@ -98,8 +104,8 @@ impl VCEvent {
 
 impl Event for VCEvent {}
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct Identifier {}
+// #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+// pub struct Identifier {}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "lowercase")]
@@ -113,6 +119,12 @@ pub enum EventType {
 pub struct Issuance {
     #[serde(rename = "ra")]
     registry_anchor: EventSeal,
+}
+
+impl Issuance {
+    pub fn new(registry_anchor: EventSeal) -> Self {
+        Self { registry_anchor }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -133,7 +145,7 @@ pub struct Revocation {
     pub prev_event_hash: SelfAddressingPrefix,
     // registry anchor to management TEL
     #[serde(rename = "ra")]
-    registry_anchor: Option<EventSeal>,
+    pub registry_anchor: Option<EventSeal>,
 }
 
 #[test]

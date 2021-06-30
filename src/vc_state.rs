@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum TelState {
     NotIsuued,
+    // Issued state has last event as argument
     Issued(Vec<u8>),
     Revoked,
 }
@@ -47,6 +48,12 @@ impl State<VCEvent> for TelState {
     }
 }
 
+impl Default for TelState {
+    fn default() -> Self {
+        TelState::NotIsuued
+    }
+}
+
 #[test]
 fn test_apply() -> Result<(), Error> {
     use crate::vc_event::TimestampedVCEvent;
@@ -58,9 +65,10 @@ fn test_apply() -> Result<(), Error> {
     let brv_ev: TimestampedVCEvent = serde_json::from_str(&brv_raw).unwrap();
     assert_eq!(serde_json::to_string(&brv_ev).unwrap(), brv_raw);
 
-    let state = TelState::NotIsuued;
+    let state = TelState::default();
     let state = state.apply(&bis_ev.event)?;
     assert!(matches!(state, TelState::Issued(_)));
+
     if let TelState::Issued(last) = state.clone() {
         match brv_ev.event.event_type {
             EventType::Brv(ref brv) => assert!(brv.prev_event_hash.verify_binding(&last)),

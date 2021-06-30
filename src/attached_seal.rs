@@ -14,6 +14,12 @@ pub struct AttachedSourceSeal {
     pub seal: EventSourceSeal,
 }
 
+impl From<EventSourceSeal> for AttachedSourceSeal {
+    fn from(seal: EventSourceSeal) -> Self {
+        AttachedSourceSeal { seal }
+    }
+}
+
 impl AttachedSourceSeal {
     pub fn new(sn: u64, dig: SelfAddressingPrefix) -> Self {
         let seal = EventSourceSeal { sn, digest: dig };
