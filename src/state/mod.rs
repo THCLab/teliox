@@ -7,8 +7,8 @@ use crate::{
     event::{manager_event::ManagerTelEvent, Event},
 };
 
-pub trait State<E: Event> {
-    fn apply(&self, event: &E) -> Result<Self, Error>
+pub trait State {
+    fn apply(&self, event: &Event) -> Result<Self, Error>
     where
         Self: Sized;
 }
@@ -22,8 +22,8 @@ pub struct ManagerTelState {
     pub backers: Option<Vec<IdentifierPrefix>>,
 }
 
-impl State<ManagerTelEvent> for ManagerTelState {
-    fn apply(&self, event: &ManagerTelEvent) -> Result<Self, Error>
+impl ManagerTelState {
+    pub fn apply(&self, event: &ManagerTelEvent) -> Result<Self, Error>
     where
         Self: Sized,
     {

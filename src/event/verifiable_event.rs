@@ -1,37 +1,28 @@
+use crate::error::Error;
 use crate::seal::AttachedSourceSeal;
-use crate::{error::Error, event::manager_event::ManagerTelEvent, event::vc_event::VCEvent};
 
-pub struct VerifiableTelEvent {
-    event: VCEvent,
-    seal: AttachedSourceSeal,
+use super::Event;
+
+pub struct VerifiableEvent {
+    pub event: Event,
+    pub seal: AttachedSourceSeal,
 }
 
-impl VerifiableTelEvent {
-    pub fn new(event: VCEvent, seal: AttachedSourceSeal) -> Self {
+impl VerifiableEvent {
+    pub fn new(event: Event, seal: AttachedSourceSeal) -> Self {
         Self { event, seal }
     }
 
     pub fn serialize(&self) -> Result<Vec<u8>, Error> {
-        let ser: Vec<u8> = [self.event.serialize()?, self.seal.serialize()?].join("-".as_bytes());
-        Ok(ser)
+        Ok(match &self.event {
+            Event::Management(man) => {
+                [man.serialize()?, self.seal.serialize()?].join("-".as_bytes())
+            }
+            Event::Vc(vc) => [vc.serialize()?, self.seal.serialize()?].join("-".as_bytes()),
+        })
     }
-}
 
-pub struct VerifiableManagementEvent {
-    event: ManagerTelEvent,
-    seal: AttachedSourceSeal,
-}
-
-impl VerifiableManagementEvent {
-    pub fn get_event(&self) -> ManagerTelEvent {
+    pub fn get_event(&self) -> Event {
         self.event.clone()
-    }
-    pub fn new(event: ManagerTelEvent, seal: AttachedSourceSeal) -> Self {
-        Self { event, seal }
-    }
-
-    pub fn serialize(&self) -> Result<Vec<u8>, Error> {
-        let ser: Vec<u8> = [self.event.serialize()?, self.seal.serialize()?].join("-".as_bytes());
-        Ok(ser)
     }
 }

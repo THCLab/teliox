@@ -3,24 +3,27 @@ use std::collections::HashMap;
 use keri::{
     derivation::self_addressing::SelfAddressing,
     event::{sections::seal::EventSeal, SerializationFormats},
-    prefix::{IdentifierPrefix, SelfAddressingPrefix},
+    prefix::{IdentifierPrefix, Prefix},
 };
 
 use crate::{
     error::Error,
     event::manager_event::{Config, Inc, ManagerEventType, ManagerTelEvent, Rot},
-    event::vc_event::{EventType, Issuance, Revocation, VCEvent},
-    event::verifiable_event::VerifiableManagementEvent,
-    state::{ManagerTelState, State},
+    event::verifiable_event::VerifiableEvent,
+    event::{
+        vc_event::{EventType, Issuance, Revocation, VCEvent},
+        Event,
+    },
+    state::{vc_state::TelState, ManagerTelState},
 };
 
 pub struct Tel {
     // TODO
     serialization_format: SerializationFormats,
     derivation: SelfAddressing,
-    management_tel: Vec<VerifiableManagementEvent>,
+    management_tel: Vec<VerifiableEvent>,
     tel_prefix: IdentifierPrefix,
-    vc_tel: HashMap<SelfAddressingPrefix, Vec<VCEvent>>,
+    vc_tel: HashMap<String, Vec<VCEvent>>,
 }
 
 impl Tel {
@@ -41,14 +44,6 @@ impl Tel {
             .ok_or(Error::Generic("Management tel is empty".into()))
     }
 
-    fn get_management_tel_state(&self) -> Result<ManagerTelState, Error> {
-        Ok(self
-            .management_tel
-            .iter()
-            .fold(ManagerTelState::default(), |state, ev| {
-                state.apply(&ev.get_event()).unwrap()
-            }))
-    }
 
     pub fn make_inception_event(
         &self,
@@ -97,7 +92,7 @@ impl Tel {
         VCEvent::new(vc_prefix.clone(), 0, iss, self.serialization_format)
     }
 
-    pub fn revoke(&self, vc: &str) -> Result<VCEvent, Error> {
+    pub fn make_revoke_event(&self, vc: &str) -> Result<VCEvent, Error> {
         let managment_state = self.get_management_tel_state()?;
         let registry_anchor = EventSeal {
             prefix: managment_state.prefix,
@@ -111,6 +106,45 @@ impl Tel {
         let vc_prefix =
             IdentifierPrefix::SelfAddressing(SelfAddressing::Blake3_256.derive(vc.as_bytes()));
         VCEvent::new(vc_prefix, 0, rev, self.serialization_format)
+    }
+
+    // Process verifiable event. It doesn't check if source seal is correct. Just add event to tel.
+    pub fn process(&mut self, event: VerifiableEvent) -> Result<(), Error> {
+        match event.event {
+            Event::Management(ref _man) => self.management_tel.push(event),
+            Event::Vc(ref vc_ev) => {
+                if let IdentifierPrefix::SelfAddressing(sa) = vc_ev.prefix.clone() {
+                    self.vc_tel
+                        .get_mut(&sa.to_str())
+                        .unwrap()
+                        .push(vc_ev.to_owned());
+                };
+            }
+        }
+        Ok(())
+    }
+
+    pub fn get_vc_state(&self, vc: &[u8]) -> Result<TelState, Error> {
+        let vc_prefix = self.derivation.derive(vc);
+        Ok(match self.vc_tel.get(&vc_prefix.to_string()) {
+            Some(events) => events
+                .into_iter()
+                .fold(TelState::default(), |state, ev| state.apply(ev).unwrap()),
+            None => TelState::default(),
+        })
+    }
+
+    fn get_management_tel_state(&self) -> Result<ManagerTelState, Error> {
+        Ok(self
+            .management_tel
+            .iter()
+            .fold(ManagerTelState::default(), |state, ev| {
+                if let Event::Management(man) = &ev.event {
+                    state.apply(&man).unwrap()
+                } else {
+                    state
+                }
+            }))
     }
 }
 #[cfg(test)]
@@ -127,11 +161,10 @@ mod tests {
 
     use crate::{
         error::Error,
-        event::manager_event::Config,
-        event::verifiable_event::{VerifiableManagementEvent, VerifiableTelEvent},
+        event::{manager_event::Config, verifiable_event::VerifiableEvent, Event},
         kerl::KERL,
         seal::EventSourceSeal,
-        state::{vc_state::TelState, State},
+        state::vc_state::TelState,
         tel::Tel,
     };
 
@@ -151,7 +184,7 @@ mod tests {
 
         let issuer_prefix = kerl.get_state()?.unwrap().prefix;
 
-        let tel = Tel::new(SerializationFormats::JSON, SelfAddressing::Blake3_256);
+        let mut tel = Tel::new(SerializationFormats::JSON, SelfAddressing::Blake3_256);
         let vcp = tel.make_inception_event(issuer_prefix, vec![Config::NoBackers], 0, vec![])?;
 
         let management_tel_prefix = vcp.clone().prefix;
@@ -171,7 +204,9 @@ mod tests {
         };
 
         // before applying vcp to management tel, insert anchor event seal to be able to verify that operation.
-        let verifiable_vcp = VerifiableManagementEvent::new(vcp.clone(), ixn_source_seal.into());
+        let verifiable_vcp =
+            VerifiableEvent::new(Event::Management(vcp.clone()), ixn_source_seal.into());
+        tel.process(verifiable_vcp)?;
 
         // now create tel event
         let vc_prefix =
@@ -192,7 +227,8 @@ mod tests {
         };
 
         // before applying vcp to management tel, insert anchor event seal to be able to verify that operation.
-        let verifiable_iss = VerifiableTelEvent::new(iss_event.clone(), ixn_source_seal.into());
+        let _verifiable_iss =
+            VerifiableEvent::new(Event::Vc(iss_event.clone()), ixn_source_seal.into());
 
         let vc_state = TelState::default().apply(&iss_event)?;
         // process management event.

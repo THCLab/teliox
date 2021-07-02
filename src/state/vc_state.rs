@@ -4,8 +4,6 @@ use crate::{
 };
 use serde::{Deserialize, Serialize};
 
-use super::State;
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum TelState {
     NotIsuued,
@@ -14,8 +12,8 @@ pub enum TelState {
     Revoked,
 }
 
-impl State<VCEvent> for TelState {
-    fn apply(&self, event: &VCEvent) -> Result<Self, Error> {
+impl TelState {
+    pub fn apply(&self, event: &VCEvent) -> Result<Self, Error> {
         match event.event_type.clone() {
             EventType::Bis(_iss) => match self {
                 TelState::NotIsuued => Ok(TelState::Issued(event.serialize()?)),

@@ -8,8 +8,6 @@ use keri::{
 use serde::{de, Deserialize, Serialize, Serializer};
 use serde_hex::{Compact, SerHex};
 
-use super::Event;
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct TimestampedVCEvent {
     #[serde(flatten)]
@@ -103,8 +101,6 @@ impl VCEvent {
             .map_err(|e| Error::KeriError(e))
     }
 }
-
-impl Event for VCEvent {}
 
 // #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 // pub struct Identifier {}

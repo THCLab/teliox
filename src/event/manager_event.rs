@@ -10,8 +10,6 @@ use keri::{
 
 use crate::{error::Error, state::ManagerTelState};
 
-use super::Event;
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ManagerTelEvent {
     #[serde(rename = "v")]
@@ -29,8 +27,6 @@ pub struct ManagerTelEvent {
     #[serde(flatten, rename = "t")]
     pub event_type: ManagerEventType,
 }
-
-impl Event for ManagerTelEvent {}
 
 impl ManagerTelEvent {
     pub fn new(
