@@ -2,7 +2,7 @@ use base64::URL_SAFE;
 use keri::prefix::parse::self_addressing_prefix;
 use nom::{bytes::complete::take, error::ErrorKind};
 
-use crate::{attached_seal::EventSourceSeal, error::Error};
+use crate::{error::Error, seal::EventSourceSeal};
 
 fn attached_sn(s: &[u8]) -> nom::IResult<&[u8], u64> {
     let (more, type_c) = take(2u8)(s)?;

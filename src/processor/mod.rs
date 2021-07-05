@@ -1,4 +1,4 @@
-use keri::prefix::{IdentifierPrefix, SelfAddressingPrefix};
+use keri::{prefix::IdentifierPrefix};
 
 use crate::{
     database::EventDatabase,
@@ -47,7 +47,7 @@ impl<'d> EventProcessor<'d> {
     }
 
     // Process verifiable event. It doesn't check if source seal is correct. Just add event to tel.
-    pub fn process(&mut self, event: VerifiableEvent) -> Result<State, Error> {
+    pub fn process(&self, event: VerifiableEvent) -> Result<State, Error> {
         match &event.event.clone() {
             Event::Management(ref man) => {
                 self.db.add_new_management_event(event, &man.prefix)?;

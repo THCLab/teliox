@@ -2,10 +2,7 @@ pub mod vc_state;
 
 use keri::prefix::IdentifierPrefix;
 
-use crate::{
-    error::Error,
-    event::{manager_event::ManagerTelEvent, Event},
-};
+use crate::{error::Error, event::manager_event::ManagerTelEvent};
 
 use self::vc_state::TelState;
 

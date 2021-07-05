@@ -1,8 +1,12 @@
 // use event_generator::{Key, KeyType};
 use keri::{
     database::sled::SledEventDatabase,
-    derivation::self_signing::SelfSigning,
-    event::{event_data::EventData, sections::seal::EventSeal, EventMessage},
+    derivation::{self_addressing::SelfAddressing, self_signing::SelfSigning},
+    event::{
+        event_data::EventData,
+        sections::seal::{DigestSeal, EventSeal, Seal},
+        EventMessage,
+    },
     event_message::parse::signed_message,
     event_message::parse::{signed_event_stream, Deserialized},
     event_message::SignedEventMessage,
@@ -95,8 +99,16 @@ impl<'d> KERL<'d> {
         key_manager: &K,
     ) -> Result<SignedEventMessage, Error> {
         let state = self.get_state()?.unwrap();
+        let seal_list = match payload {
+            Some(payload) => {
+                vec![Seal::Digest(DigestSeal {
+                    dig: SelfAddressing::Blake3_256.derive(payload.as_bytes()),
+                })]
+            }
+            None => vec![],
+        };
 
-        let ev = event_generator::make_ixn(payload, state).unwrap();
+        let ev = event_generator::make_ixn_with_seal(&seal_list, state).unwrap();
 
         let ixn = ev.sign(vec![AttachedSignaturePrefix::new(
             SelfSigning::Ed25519Sha512,
@@ -112,12 +124,12 @@ impl<'d> KERL<'d> {
 
     pub fn make_ixn_with_seal<K: KeyManager>(
         &mut self,
-        payload: EventSeal,
+        seal_list: &[Seal],
         key_manager: &K,
     ) -> Result<SignedEventMessage, Error> {
         let state = self.get_state()?.unwrap();
 
-        let ev = event_generator::make_ixn_with_event_seal(payload, state).unwrap();
+        let ev = event_generator::make_ixn_with_seal(seal_list, state).unwrap();
 
         let ixn = ev.sign(vec![AttachedSignaturePrefix::new(
             SelfSigning::Ed25519Sha512,

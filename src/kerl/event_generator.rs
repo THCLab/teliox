@@ -3,7 +3,7 @@ use keri::{
     derivation::{basic::Basic, self_addressing::SelfAddressing},
     event::{
         event_data::{EventData, Receipt},
-        sections::seal::{DigestSeal, EventSeal, Seal},
+        sections::seal::{EventSeal, Seal},
         Event, EventMessage, SerializationFormats,
     },
     event_message::event_msg_builder::{EventMsgBuilder, EventType},
@@ -11,28 +11,6 @@ use keri::{
     signer::KeyManager,
     state::IdentifierState,
 };
-
-pub enum KeyType {
-    Ed25519Sha512,
-}
-
-pub struct Key {
-    key: Vec<u8>,
-    key_type: KeyType,
-}
-
-impl Key {
-    pub fn new(key: Vec<u8>, key_type: KeyType) -> Key {
-        Self { key, key_type }
-    }
-
-    // pub fn derive_key_prefix(&self) -> BasicPrefix {
-    //     let pk = self.key.clone();
-    //     match self.key_type {
-    //         KeyType::Ed25519Sha512 => BasicPrefix::new(Basic::Ed25519, keri::keys::Key::new(pk))
-    //     }
-    // }
-}
 
 pub fn make_icp(
     km: &dyn KeyManager,
@@ -62,34 +40,15 @@ pub fn make_rot(km: &dyn KeyManager, state: IdentifierState) -> Result<EventMess
     Ok(ixn)
 }
 
-pub fn make_ixn(payload: Option<&str>, state: IdentifierState) -> Result<EventMessage, Error> {
-    let seal_list = match payload {
-        Some(payload) => {
-            vec![Seal::Digest(DigestSeal {
-                dig: SelfAddressing::Blake3_256.derive(payload.as_bytes()),
-            })]
-        }
-        None => vec![],
-    };
-    let ev = EventMsgBuilder::new(EventType::Interaction)?
-        .with_prefix(state.prefix.clone())
-        .with_sn(state.sn + 1)
-        .with_previous_event(SelfAddressing::Blake3_256.derive(&state.last))
-        .with_seal(seal_list)
-        .build()?;
-    Ok(ev)
-}
-
-pub fn make_ixn_with_event_seal(
-    event_seal: EventSeal,
+pub fn make_ixn_with_seal(
+    seal_list: &[Seal],
     state: IdentifierState,
 ) -> Result<EventMessage, Error> {
-    let seal_list = vec![Seal::Event(event_seal)];
     let ev = EventMsgBuilder::new(EventType::Interaction)?
         .with_prefix(state.prefix.clone())
         .with_sn(state.sn + 1)
         .with_previous_event(SelfAddressing::Blake3_256.derive(&state.last))
-        .with_seal(seal_list)
+        .with_seal(seal_list.to_owned())
         .build()?;
     Ok(ev)
 }

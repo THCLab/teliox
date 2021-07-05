@@ -4,6 +4,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
 
+pub mod parse;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventSourceSeal {
     pub sn: u64,

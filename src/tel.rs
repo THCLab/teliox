@@ -133,7 +133,10 @@ mod tests {
     use keri::{
         database::sled::SledEventDatabase,
         derivation::self_addressing::SelfAddressing,
-        event::{sections::seal::EventSeal, SerializationFormats},
+        event::{
+            sections::seal::{EventSeal, Seal},
+            SerializationFormats,
+        },
         prefix::{IdentifierPrefix, Prefix},
         signer::CryptoBox,
     };
@@ -178,13 +181,13 @@ mod tests {
         let management_tel_prefix = vcp.clone().prefix;
 
         // create vcp seal which will be inserted into issuer kel (ixn event)
-        let vcp_seal = EventSeal {
+        let vcp_seal = Seal::Event(EventSeal {
             prefix: management_tel_prefix.clone(),
             sn: vcp.sn,
             event_digest: SelfAddressing::Blake3_256.derive(&vcp.serialize()?),
-        };
+        });
 
-        let ixn = kerl.make_ixn_with_seal(vcp_seal, &km)?;
+        let ixn = kerl.make_ixn_with_seal(&vec![vcp_seal], &km)?;
 
         let ixn_source_seal = EventSourceSeal {
             sn: ixn.event_message.event.sn,
@@ -211,13 +214,13 @@ mod tests {
         let iss_event = tel.make_issuance_event(message)?;
 
         // create iss seal which will be inserted into issuer kel (ixn event)
-        let iss_seal = EventSeal {
+        let iss_seal = Seal::Event(EventSeal {
             prefix: vc_prefix.clone(),
             sn: iss_event.sn,
             event_digest: SelfAddressing::Blake3_256.derive(&iss_event.serialize()?),
-        };
+        });
 
-        let ixn = kerl.make_ixn_with_seal(iss_seal, &km)?;
+        let ixn = kerl.make_ixn_with_seal(&vec![iss_seal], &km)?;
 
         // Make source seal.
         let ixn_source_seal = EventSourceSeal {
@@ -240,13 +243,13 @@ mod tests {
 
         let rev_event = tel.make_revoke_event(message)?;
         // create rev seal which will be inserted into issuer kel (ixn event)
-        let rev_seal = EventSeal {
+        let rev_seal = Seal::Event(EventSeal {
             prefix: vc_prefix.clone(),
             sn: rev_event.sn,
             event_digest: SelfAddressing::Blake3_256.derive(&iss_event.serialize()?),
-        };
+        });
 
-        let ixn = kerl.make_ixn_with_seal(rev_seal, &km)?;
+        let ixn = kerl.make_ixn_with_seal(&vec![rev_seal], &km)?;
 
         // Make source seal.
         let ixn_source_seal = EventSourceSeal {
