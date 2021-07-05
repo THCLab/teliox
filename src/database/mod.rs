@@ -47,7 +47,7 @@ impl EventDatabase {
             .iter_values(self.identifiers.designated_key(id))
     }
 
-    pub fn add_new_management_event_message(
+    pub fn add_new_management_event(
         &self,
         event: VerifiableEvent,
         id: &IdentifierPrefix,

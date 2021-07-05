@@ -92,8 +92,13 @@ impl<'d> Tel<'d> {
             sn: managment_state.sn,
             event_digest: self.derivation.derive(&managment_state.last),
         };
+        let vc_state = self.get_vc_state(vc.as_bytes())?;
+        let last = match vc_state {
+            TelState::Issued(last) => self.derivation.derive(&last),
+            _ => return Err(Error::Generic("Inproper vc state".into())),
+        };
         let rev = EventType::Brv(Revocation {
-            prev_event_hash: self.derivation.derive(&managment_state.last),
+            prev_event_hash: last,
             registry_anchor: Some(registry_anchor),
         });
         let vc_prefix =
@@ -114,7 +119,7 @@ impl<'d> Tel<'d> {
 
     pub fn get_vc_state(&self, vc: &[u8]) -> Result<TelState, Error> {
         let vc_prefix = IdentifierPrefix::SelfAddressing(self.derivation.derive(vc));
-        self.processor.get_state(&vc_prefix)
+        self.processor.get_vc_state(&vc_prefix)
     }
 
     fn get_management_tel_state(&self) -> Result<ManagerTelState, Error> {
@@ -196,7 +201,7 @@ mod tests {
         assert_eq!(st.sn, 0);
 
         // check if vcp event is in db.
-        let mana_ev = tel.processor.get_management_tel_vec(&tel.tel_prefix)?;
+        let mana_ev = tel.processor.get_management_events(&tel.tel_prefix)?;
         assert!(mana_ev.is_some());
         assert_eq!(mana_ev.unwrap(), verifiable_vcp.serialize()?);
 
@@ -223,15 +228,39 @@ mod tests {
         // before applying iss to tel, insert anchor event seal to be able to verify that operation.
         let verifiable_iss =
             VerifiableEvent::new(Event::Vc(iss_event.clone()), ixn_source_seal.into());
-        let g = tel.process(verifiable_iss.clone())?;
+        tel.process(verifiable_iss.clone())?;
 
         // Chcek if iss event is in db.
-        let o = tel.processor.get_tel_vec(&vc_prefix)?;
+        let o = tel.processor.get_events(&vc_prefix)?;
         assert!(o.is_some());
         assert_eq!(o.unwrap(), verifiable_iss.serialize()?);
 
         let state = tel.get_vc_state(message.as_bytes())?;
         assert!(matches!(state, TelState::Issued(_)));
+
+        let rev_event = tel.make_revoke_event(message)?;
+        // create rev seal which will be inserted into issuer kel (ixn event)
+        let rev_seal = EventSeal {
+            prefix: vc_prefix.clone(),
+            sn: rev_event.sn,
+            event_digest: SelfAddressing::Blake3_256.derive(&iss_event.serialize()?),
+        };
+
+        let ixn = kerl.make_ixn_with_seal(rev_seal, &km)?;
+
+        // Make source seal.
+        let ixn_source_seal = EventSourceSeal {
+            sn: ixn.event_message.event.sn,
+            digest: SelfAddressing::Blake3_256.derive(&ixn.serialize()?),
+        };
+
+        // before applying iss to tel, insert anchor event seal to be able to verify that operation.
+        let verifiable_rev =
+            VerifiableEvent::new(Event::Vc(rev_event.clone()), ixn_source_seal.into());
+
+        tel.process(verifiable_rev.clone())?;
+        let state = tel.get_vc_state(message.as_bytes())?;
+        assert!(matches!(state, TelState::Revoked));
 
         Ok(())
     }
