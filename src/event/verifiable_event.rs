@@ -1,8 +1,10 @@
 use crate::error::Error;
 use crate::seal::AttachedSourceSeal;
+use serde::{Deserialize, Serialize};
 
 use super::Event;
 
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct VerifiableEvent {
     pub event: Event,
     pub seal: AttachedSourceSeal,

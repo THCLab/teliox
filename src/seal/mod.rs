@@ -1,15 +1,16 @@
 use base64::URL_SAFE;
 use keri::prefix::{Prefix, SelfAddressingPrefix};
+use serde::{Deserialize, Serialize};
 
 use crate::error::Error;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EventSourceSeal {
     pub sn: u64,
     pub digest: SelfAddressingPrefix,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AttachedSourceSeal {
     pub seal: EventSourceSeal,
 }

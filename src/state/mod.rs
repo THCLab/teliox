@@ -7,10 +7,11 @@ use crate::{
     event::{manager_event::ManagerTelEvent, Event},
 };
 
-pub trait State {
-    fn apply(&self, event: &Event) -> Result<Self, Error>
-    where
-        Self: Sized;
+use self::vc_state::TelState;
+
+pub enum State {
+    Management(ManagerTelState),
+    Tel(TelState),
 }
 
 #[derive(Default, PartialEq)]
