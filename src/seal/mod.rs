@@ -6,13 +6,13 @@ use crate::error::Error;
 
 pub mod parse;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct EventSourceSeal {
     pub sn: u64,
     pub digest: SelfAddressingPrefix,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct AttachedSourceSeal {
     pub seal: EventSourceSeal,
 }

@@ -13,7 +13,7 @@ use keri::{
     prefix::{IdentifierPrefix, Prefix},
 };
 
-mod event_generator;
+pub mod event_generator;
 
 pub struct Tel<'d> {
     pub processor: EventProcessor<'d>,
@@ -48,7 +48,7 @@ impl<'d> Tel<'d> {
             config,
             backer_threshold,
             backers,
-            self.derivation.to_owned(),
+            &self.derivation,
             &self.serialization_format,
         )
     }
@@ -86,7 +86,7 @@ impl<'d> Tel<'d> {
         event_generator::make_revoke_event(
             vc,
             last,
-            self.get_management_tel_state()?,
+            &self.get_management_tel_state()?,
             &self.derivation,
             &self.serialization_format,
         )

@@ -18,7 +18,7 @@ pub fn make_inception_event(
     config: Vec<Config>,
     backer_threshold: u64,
     backers: Vec<IdentifierPrefix>,
-    derivation: SelfAddressing,
+    derivation: &SelfAddressing,
     serialization_format: &SerializationFormats,
 ) -> Result<ManagerTelEvent, Error> {
     let event_type = Inc {
@@ -44,7 +44,7 @@ pub fn make_rotation_event(
     };
     ManagerTelEvent::new(
         &state.prefix,
-        state.sn,
+        state.sn + 1,
         ManagerEventType::Vrt(rot_data),
         serialization_format.to_owned(),
     )
@@ -69,12 +69,12 @@ pub fn make_issuance_event(
 pub fn make_revoke_event(
     vc: &str,
     last_vc_event: SelfAddressingPrefix,
-    state: ManagerTelState,
+    state: &ManagerTelState,
     derivation: &SelfAddressing,
     serialization_format: &SerializationFormats,
 ) -> Result<VCEvent, Error> {
     let registry_anchor = EventSeal {
-        prefix: state.prefix,
+        prefix: state.prefix.to_owned(),
         sn: state.sn,
         event_digest: derivation.derive(&state.last),
     };
