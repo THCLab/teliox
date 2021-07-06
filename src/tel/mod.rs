@@ -8,9 +8,8 @@ use crate::{
     state::{vc_state::TelState, ManagerTelState, State},
 };
 use keri::{
-    derivation::self_addressing::SelfAddressing,
-    event::SerializationFormats,
-    prefix::{IdentifierPrefix, Prefix},
+    derivation::self_addressing::SelfAddressing, event::SerializationFormats,
+    prefix::IdentifierPrefix,
 };
 
 pub mod event_generator;
@@ -124,7 +123,7 @@ mod tests {
             sections::seal::{EventSeal, Seal},
             SerializationFormats,
         },
-        prefix::{IdentifierPrefix, Prefix},
+        prefix::IdentifierPrefix,
         signer::CryptoBox,
     };
 

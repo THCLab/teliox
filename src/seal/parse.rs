@@ -7,10 +7,10 @@ use crate::{error::Error, seal::EventSourceSeal};
 fn attached_sn(s: &[u8]) -> nom::IResult<&[u8], u64> {
     let (more, type_c) = take(2u8)(s)?;
 
-    const a: &'static [u8] = "0A".as_bytes();
+    const A: &'static [u8] = "0A".as_bytes();
 
     match type_c {
-        a => {
+        A => {
             let (rest, parsed_sn) = take(22u8)(more)?;
 
             let sn =
@@ -32,10 +32,10 @@ fn base64_to_num(b64: &[u8]) -> Result<u64, Error> {
 /// extracts the Event source seal
 pub fn event_source_seal(s: &[u8]) -> nom::IResult<&[u8], EventSourceSeal> {
     let (more, type_c) = take(3u8)(s)?;
-    const a: &'static [u8] = "GAB".as_bytes();
+    const A: &'static [u8] = "GAB".as_bytes();
 
     match type_c {
-        a => {
+        A => {
             let (rest, sn) = attached_sn(more)?;
             let (rest, event_digest) = self_addressing_prefix(rest)?;
             let seal = EventSourceSeal {
