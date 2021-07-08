@@ -54,8 +54,8 @@ impl<'d> Tel<'d> {
 
     pub fn make_rotation_event(
         &self,
-        ba: Vec<IdentifierPrefix>,
-        br: Vec<IdentifierPrefix>,
+        ba: &[IdentifierPrefix],
+        br: &[IdentifierPrefix],
     ) -> Result<ManagerTelEvent, Error> {
         event_generator::make_rotation_event(
             &self.get_management_tel_state()?,
@@ -116,45 +116,24 @@ impl<'d> Tel<'d> {
 mod tests {
     use std::fs;
 
-    use keri::{
-        database::sled::SledEventDatabase,
-        derivation::self_addressing::SelfAddressing,
-        event::{
-            sections::seal::{EventSeal, Seal},
-            SerializationFormats,
-        },
-        prefix::IdentifierPrefix,
-        signer::CryptoBox,
-    };
+    use keri::{derivation::self_addressing::SelfAddressing, event::SerializationFormats};
 
     use crate::{
         error::Error,
-        event::{manager_event::Config, verifiable_event::VerifiableEvent, Event},
-        kerl::KERL,
+        event::{verifiable_event::VerifiableEvent, Event},
         seal::EventSourceSeal,
-        state::vc_state::TelState,
+        state::State,
         tel::Tel,
     };
 
     #[test]
-    pub fn test_issuing() -> Result<(), Error> {
+    pub fn test_management_tel() -> Result<(), Error> {
         use tempfile::Builder;
-        // Create test db and key manager.
-        let root = Builder::new().prefix("test-db").tempdir().unwrap();
-        fs::create_dir_all(root.path()).unwrap();
-        let db = SledEventDatabase::new(root.path()).unwrap();
-        let km = CryptoBox::new()?;
 
-        // Create kerl
-        let mut kerl = KERL::new(&db, IdentifierPrefix::default())?;
-        kerl.incept(&km)?;
-
-        let message = "some vc";
-
-        let issuer_prefix = kerl.get_state()?.unwrap().prefix;
         let tel_root = Builder::new().prefix("tel-test-db").tempdir().unwrap();
         fs::create_dir_all(tel_root.path()).unwrap();
         let tel_db = crate::database::EventDatabase::new(tel_root.path()).unwrap();
+        let issuer_prefix = "DpE03it33djytuVvXhSbZdEw0lx7Xa-olrlUUSH2Ykvc".parse()?;
 
         // Create tel
         let mut tel = Tel::new(
@@ -162,94 +141,28 @@ mod tests {
             SerializationFormats::JSON,
             SelfAddressing::Blake3_256,
         );
-        let vcp = tel.make_inception_event(issuer_prefix, vec![Config::NoBackers], 0, vec![])?;
-
-        let management_tel_prefix = vcp.clone().prefix;
-
-        // create vcp seal which will be inserted into issuer kel (ixn event)
-        let vcp_seal = Seal::Event(EventSeal {
-            prefix: management_tel_prefix.clone(),
-            sn: vcp.sn,
-            event_digest: SelfAddressing::Blake3_256.derive(&vcp.serialize()?),
-        });
-
-        let ixn = kerl.make_ixn_with_seal(&vec![vcp_seal], &km)?;
-
-        let ixn_source_seal = EventSourceSeal {
-            sn: ixn.event_message.event.sn,
-            digest: SelfAddressing::Blake3_256.derive(&ixn.serialize()?),
+        let dummy_source_seal = EventSourceSeal {
+            sn: 1,
+            digest: "EJJR2nmwyYAfSVPzhzS6b5CMZAoTNZH3ULvaU6Z-i0d8".parse()?,
         };
 
-        // before applying vcp to management tel, insert anchor event seal to be able to verify that operation.
-        let verifiable_vcp =
-            VerifiableEvent::new(Event::Management(vcp.clone()), ixn_source_seal.into());
-        tel.process(verifiable_vcp.clone())?;
+        let vcp = tel.make_inception_event(issuer_prefix, vec![], 0, vec![])?;
+        let verifiable_vcp = VerifiableEvent::new(
+            Event::Management(vcp.clone()),
+            dummy_source_seal.clone().into(),
+        );
+        let processing_output = tel.process(verifiable_vcp.clone());
+        assert!(processing_output.is_ok());
 
-        // Check management state.
-        let st = tel.get_management_tel_state()?;
-        assert_eq!(st.sn, 0);
-
-        // check if vcp event is in db.
-        let mana_ev = tel.processor.get_management_events(&tel.tel_prefix)?;
-        assert!(mana_ev.is_some());
-        assert_eq!(mana_ev.unwrap(), verifiable_vcp.serialize()?);
-
-        // now create tel event
-        let vc_prefix =
-            IdentifierPrefix::SelfAddressing(SelfAddressing::Blake3_256.derive(message.as_bytes()));
-        let iss_event = tel.make_issuance_event(message)?;
-
-        // create iss seal which will be inserted into issuer kel (ixn event)
-        let iss_seal = Seal::Event(EventSeal {
-            prefix: vc_prefix.clone(),
-            sn: iss_event.sn,
-            event_digest: SelfAddressing::Blake3_256.derive(&iss_event.serialize()?),
-        });
-
-        let ixn = kerl.make_ixn_with_seal(&vec![iss_seal], &km)?;
-
-        // Make source seal.
-        let ixn_source_seal = EventSourceSeal {
-            sn: ixn.event_message.event.sn,
-            digest: SelfAddressing::Blake3_256.derive(&ixn.serialize()?),
-        };
-
-        // before applying iss to tel, insert anchor event seal to be able to verify that operation.
-        let verifiable_iss =
-            VerifiableEvent::new(Event::Vc(iss_event.clone()), ixn_source_seal.into());
-        tel.process(verifiable_iss.clone())?;
-
-        // Chcek if iss event is in db.
-        let o = tel.processor.get_events(&vc_prefix)?;
-        assert!(o.is_some());
-        assert_eq!(o.unwrap(), verifiable_iss.serialize()?);
-
-        let state = tel.get_vc_state(message.as_bytes())?;
-        assert!(matches!(state, TelState::Issued(_)));
-
-        let rev_event = tel.make_revoke_event(message)?;
-        // create rev seal which will be inserted into issuer kel (ixn event)
-        let rev_seal = Seal::Event(EventSeal {
-            prefix: vc_prefix.clone(),
-            sn: rev_event.sn,
-            event_digest: SelfAddressing::Blake3_256.derive(&iss_event.serialize()?),
-        });
-
-        let ixn = kerl.make_ixn_with_seal(&vec![rev_seal], &km)?;
-
-        // Make source seal.
-        let ixn_source_seal = EventSourceSeal {
-            sn: ixn.event_message.event.sn,
-            digest: SelfAddressing::Blake3_256.derive(&ixn.serialize()?),
-        };
-
-        // before applying iss to tel, insert anchor event seal to be able to verify that operation.
-        let verifiable_rev =
-            VerifiableEvent::new(Event::Vc(rev_event.clone()), ixn_source_seal.into());
-
-        tel.process(verifiable_rev.clone())?;
-        let state = tel.get_vc_state(message.as_bytes())?;
-        assert!(matches!(state, TelState::Revoked));
+        let backers_to_add = vec!["EJJR2nmwyYAfSVPzhzS6b5CMZAoTNZH3ULvaU6Z-i0d8".parse()?];
+        let rcp = tel.make_rotation_event(&backers_to_add, &vec![])?;
+        let verifiable_rcp =
+            VerifiableEvent::new(Event::Management(rcp.clone()), dummy_source_seal.into());
+        let processing_output = tel.process(verifiable_rcp.clone());
+        assert!(processing_output.is_ok());
+        if let State::Management(man) = processing_output.unwrap() {
+            assert_eq!(man.backers, Some(backers_to_add))
+        }
 
         Ok(())
     }
