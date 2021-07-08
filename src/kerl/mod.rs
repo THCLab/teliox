@@ -58,7 +58,7 @@ impl<'d> KERL<'d> {
     }
 
     pub fn incept<K: KeyManager>(&mut self, key_manager: &K) -> Result<SignedEventMessage, Error> {
-        let icp = event_generator::make_icp(key_manager, Some(self.prefix.clone())).unwrap();
+        let icp = event_generator::make_icp(key_manager, Some(self.prefix.clone()))?;
 
         let sigged = icp.sign(vec![AttachedSignaturePrefix::new(
             SelfSigning::Ed25519Sha512,

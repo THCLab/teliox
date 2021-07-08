@@ -19,31 +19,35 @@ impl<'d> EventProcessor<'d> {
         &self,
         id: &IdentifierPrefix,
     ) -> Result<ManagerTelState, Error> {
-        Ok(match self.db.get_management_events(id) {
-            Some(events) => {
-                events
-                    .into_iter()
-                    .fold(ManagerTelState::default(), |state, ev| match ev.event {
-                        Event::Management(event) => state.apply(&event).unwrap(),
-                        _ => state,
-                    })
-            }
-            None => ManagerTelState::default(),
-        })
+        match self.db.get_management_events(id) {
+            Some(events) => events.into_iter().fold(
+                Ok(ManagerTelState::default()),
+                |state: Result<ManagerTelState, Error>,
+                 ev: VerifiableEvent|
+                 -> Result<ManagerTelState, Error> {
+                    match ev.event {
+                        Event::Management(event) => state?.apply(&event),
+                        Event::Vc(_) => Err(Error::Generic("Improper event type".into())),
+                    }
+                },
+            ),
+            None => Ok(ManagerTelState::default()),
+        }
     }
 
     pub fn get_vc_state(&self, vc_id: &IdentifierPrefix) -> Result<TelState, Error> {
-        Ok(match self.db.get_events(vc_id) {
-            Some(events) => {
-                events
-                    .into_iter()
-                    .fold(TelState::default(), |state, ev| match ev.event {
-                        Event::Vc(event) => state.apply(&event).unwrap(),
+        match self.db.get_events(vc_id) {
+            Some(events) => events.into_iter().fold(
+                Ok(TelState::default()),
+                |state, ev| -> Result<TelState, Error> {
+                    match ev.event {
+                        Event::Vc(event) => state?.apply(&event),
                         _ => state,
-                    })
-            }
-            None => TelState::default(),
-        })
+                    }
+                },
+            ),
+            None => Ok(TelState::default()),
+        }
     }
 
     // Process verifiable event. It doesn't check if source seal is correct. Just add event to tel.
@@ -235,8 +239,8 @@ mod tests {
 
         let vrt = event_generator::make_rotation_event(
             &st,
-            backers,
-            vec![],
+            &backers,
+            &vec![],
             &derivation,
             &serialization,
         )?;

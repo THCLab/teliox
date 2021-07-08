@@ -32,15 +32,15 @@ pub fn make_inception_event(
 
 pub fn make_rotation_event(
     state: &ManagerTelState,
-    ba: Vec<IdentifierPrefix>,
-    br: Vec<IdentifierPrefix>,
+    ba: &[IdentifierPrefix],
+    br: &[IdentifierPrefix],
     derivation: &SelfAddressing,
     serialization_format: &SerializationFormats,
 ) -> Result<ManagerTelEvent, Error> {
     let rot_data = Rot {
         prev_event: derivation.derive(&state.last),
-        backers_to_add: ba,
-        backers_to_remove: br,
+        backers_to_add: ba.to_vec(),
+        backers_to_remove: br.to_vec(),
     };
     ManagerTelEvent::new(
         &state.prefix,
