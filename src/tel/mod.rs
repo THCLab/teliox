@@ -109,6 +109,10 @@ impl<'d> Tel<'d> {
         self.processor.get_vc_state(&vc_prefix)
     }
 
+    pub fn get_tel(&self, vc_hash: &SelfAddressingPrefix) -> Result<Vec<VerifiableEvent>, Error> {
+        self.processor.get_events(vc_hash)
+    }
+
     pub fn get_management_tel_state(&self) -> Result<ManagerTelState, Error> {
         self.processor.get_management_tel_state(&self.tel_prefix)
     }

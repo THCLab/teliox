@@ -1,4 +1,4 @@
-use keri::prefix::IdentifierPrefix;
+use keri::prefix::{IdentifierPrefix, SelfAddressingPrefix};
 
 use crate::{
     database::EventDatabase,
@@ -80,21 +80,17 @@ impl<'d> EventProcessor<'d> {
         }
     }
 
-    pub fn get_events(&self, vc_id: &IdentifierPrefix) -> Result<Option<Vec<u8>>, Error> {
-        match self.db.get_events(vc_id) {
-            Some(events) => Ok(Some(
-                events
-                    .map(|event| event.serialize().unwrap_or_default())
-                    .fold(vec![], |mut accum, serialized_event| {
-                        accum.extend(serialized_event);
-                        accum
-                    }),
-            )),
-            None => Ok(None),
+    pub fn get_events(&self, vc_id: &SelfAddressingPrefix) -> Result<Vec<VerifiableEvent>, Error> {
+        let prefix = IdentifierPrefix::SelfAddressing(vc_id.to_owned());
+         match self.db.get_events(&prefix) {
+            Some(events) => Ok(
+                events.collect()
+            ),
+            None => Ok(vec![]),
         }
     }
 
-    pub fn get_management_event_at_sn(
+ pub fn get_management_event_at_sn(
         &self,
         id: &IdentifierPrefix,
         sn: u64,
@@ -194,9 +190,8 @@ mod tests {
         processor.process(verifiable_iss.clone())?;
 
         // Chcek if iss event is in db.
-        let o = processor.get_events(&vc_prefix)?;
-        assert!(o.is_some());
-        assert_eq!(o.unwrap(), verifiable_iss.serialize()?);
+        let o = processor.get_events(&message_id)?;
+        assert_eq!(o, vec![verifiable_iss.clone()]);
 
         let state =
             processor.get_vc_state(&IdentifierPrefix::SelfAddressing(message_id.clone()))?;
@@ -226,14 +221,9 @@ mod tests {
         assert!(matches!(state, TelState::Revoked));
 
         // Chcek if rev event is in db.
-        let o = processor.get_events(&vc_prefix)?;
-        assert!(o.is_some());
-        let expected_event_vec = [
-            &verifiable_iss.serialize()?[..],
-            &verifiable_rev.serialize()?[..],
-        ]
-        .concat();
-        assert_eq!(o.unwrap(), expected_event_vec);
+        let o = processor.get_events(&message_id)?;
+        assert_eq!(o.len(), 2);
+        assert_eq!(o, vec![verifiable_iss, verifiable_rev]);
 
         let backers: Vec<IdentifierPrefix> =
             vec!["BwFbQvUaS4EirvZVPUav7R_KDHB8AKmSfXNpWnZU_YEU".parse()?];
