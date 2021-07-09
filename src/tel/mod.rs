@@ -8,8 +8,9 @@ use crate::{
     state::{vc_state::TelState, ManagerTelState, State},
 };
 use keri::{
-    derivation::self_addressing::SelfAddressing, event::SerializationFormats,
-    prefix::IdentifierPrefix,
+    derivation::self_addressing::SelfAddressing,
+    event::SerializationFormats,
+    prefix::{IdentifierPrefix, SelfAddressingPrefix},
 };
 
 pub mod event_generator;
@@ -67,7 +68,7 @@ impl<'d> Tel<'d> {
     }
 
     pub fn make_issuance_event(&self, vc: &str) -> Result<VCEvent, Error> {
-        let vc_hash = SelfAddressing::Blake3_256.derive(vc.as_bytes());
+        let vc_hash = self.derivation.derive(vc.as_bytes());
         event_generator::make_issuance_event(
             &self.get_management_tel_state()?,
             vc_hash,
@@ -76,8 +77,8 @@ impl<'d> Tel<'d> {
         )
     }
 
-    pub fn make_revoke_event(&self, vc: &str) -> Result<VCEvent, Error> {
-        let vc_state = self.get_vc_state(vc.as_bytes())?;
+    pub fn make_revoke_event(&self, vc: &SelfAddressingPrefix) -> Result<VCEvent, Error> {
+        let vc_state = self.get_vc_state(vc)?;
         let last = match vc_state {
             TelState::Issued(last) => self.derivation.derive(&last),
             _ => return Err(Error::Generic("Inproper vc state".into())),
@@ -103,8 +104,8 @@ impl<'d> Tel<'d> {
         Ok(state)
     }
 
-    pub fn get_vc_state(&self, vc: &[u8]) -> Result<TelState, Error> {
-        let vc_prefix = IdentifierPrefix::SelfAddressing(self.derivation.derive(vc));
+    pub fn get_vc_state(&self, vc_hash: &SelfAddressingPrefix) -> Result<TelState, Error> {
+        let vc_prefix = IdentifierPrefix::SelfAddressing(vc_hash.to_owned());
         self.processor.get_vc_state(&vc_prefix)
     }
 

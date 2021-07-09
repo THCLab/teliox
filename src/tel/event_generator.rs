@@ -67,7 +67,7 @@ pub fn make_issuance_event(
 }
 
 pub fn make_revoke_event(
-    vc: &str,
+    vc_hash: &SelfAddressingPrefix,
     last_vc_event: SelfAddressingPrefix,
     state: &ManagerTelState,
     derivation: &SelfAddressing,
@@ -82,7 +82,6 @@ pub fn make_revoke_event(
         prev_event_hash: last_vc_event,
         registry_anchor: Some(registry_anchor),
     });
-    let vc_prefix =
-        IdentifierPrefix::SelfAddressing(SelfAddressing::Blake3_256.derive(vc.as_bytes()));
+    let vc_prefix = IdentifierPrefix::SelfAddressing(vc_hash.to_owned());
     VCEvent::new(vc_prefix, 0, rev, serialization_format.to_owned())
 }

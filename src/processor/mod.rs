@@ -198,7 +198,8 @@ mod tests {
         assert!(o.is_some());
         assert_eq!(o.unwrap(), verifiable_iss.serialize()?);
 
-        let state = processor.get_vc_state(&IdentifierPrefix::SelfAddressing(message_id))?;
+        let state =
+            processor.get_vc_state(&IdentifierPrefix::SelfAddressing(message_id.clone()))?;
         assert!(matches!(state, TelState::Issued(_)));
         let last = match state {
             TelState::Issued(last) => last,
@@ -207,7 +208,7 @@ mod tests {
 
         // Create revocation event.
         let rev_event = event_generator::make_revoke_event(
-            message,
+            &message_id,
             derivation.clone().derive(&last),
             &st,
             &derivation,
