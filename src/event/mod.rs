@@ -1,3 +1,5 @@
+use crate::error::Error;
+
 use self::{manager_event::ManagerTelEvent, vc_event::VCEvent};
 use keri::prefix::IdentifierPrefix;
 use serde::{Deserialize, Serialize};
@@ -24,6 +26,13 @@ impl Event {
         match self {
             Event::Management(man) => man.sn,
             Event::Vc(ev) => ev.sn,
+        }
+    }
+
+    pub fn serialize(&self) -> Result<Vec<u8>, Error> {
+        match self {
+            Event::Management(man) => man.serialize(),
+            Event::Vc(ev) => ev.serialize(),
         }
     }
 }
