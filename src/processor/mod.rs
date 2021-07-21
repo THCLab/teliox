@@ -82,15 +82,13 @@ impl<'d> EventProcessor<'d> {
 
     pub fn get_events(&self, vc_id: &SelfAddressingPrefix) -> Result<Vec<VerifiableEvent>, Error> {
         let prefix = IdentifierPrefix::SelfAddressing(vc_id.to_owned());
-         match self.db.get_events(&prefix) {
-            Some(events) => Ok(
-                events.collect()
-            ),
+        match self.db.get_events(&prefix) {
+            Some(events) => Ok(events.collect()),
             None => Ok(vec![]),
         }
     }
 
- pub fn get_management_event_at_sn(
+    pub fn get_management_event_at_sn(
         &self,
         id: &IdentifierPrefix,
         sn: u64,
@@ -117,7 +115,7 @@ mod tests {
 
     use crate::{
         error::Error,
-        event::{verifiable_event::VerifiableEvent, Event},
+        event::verifiable_event::VerifiableEvent,
         processor::EventProcessor,
         seal::EventSourceSeal,
         state::vc_state::TelState,
@@ -155,14 +153,11 @@ mod tests {
             &serialization,
         )?;
 
-        let management_tel_prefix = vcp.clone().prefix;
+        let management_tel_prefix = vcp.get_prefix(); 
 
         // before applying vcp to management tel, insert anchor event seal.
         // note: source seal isn't check while event processing.
-        let verifiable_vcp = VerifiableEvent::new(
-            Event::Management(vcp.clone()),
-            dummy_source_seal.clone().into(),
-        );
+        let verifiable_vcp = VerifiableEvent::new(vcp.clone(), dummy_source_seal.clone().into());
         processor.process(verifiable_vcp.clone())?;
 
         // Check management state.
@@ -183,10 +178,8 @@ mod tests {
             &serialization,
         )?;
 
-        let verifiable_iss = VerifiableEvent::new(
-            Event::Vc(iss_event.clone()),
-            dummy_source_seal.clone().into(),
-        );
+        let verifiable_iss =
+            VerifiableEvent::new(iss_event.clone(), dummy_source_seal.clone().into());
         processor.process(verifiable_iss.clone())?;
 
         // Chcek if iss event is in db.
@@ -210,10 +203,8 @@ mod tests {
             &serialization,
         )?;
 
-        let verifiable_rev = VerifiableEvent::new(
-            Event::Vc(rev_event.clone()),
-            dummy_source_seal.clone().into(),
-        );
+        let verifiable_rev =
+            VerifiableEvent::new(rev_event.clone(), dummy_source_seal.clone().into());
 
         // Check if vc was revoked.
         processor.process(verifiable_rev.clone())?;
@@ -236,10 +227,7 @@ mod tests {
             &serialization,
         )?;
 
-        let verifiable_vrt = VerifiableEvent::new(
-            Event::Management(vrt.clone()),
-            dummy_source_seal.clone().into(),
-        );
+        let verifiable_vrt = VerifiableEvent::new(vrt.clone(), dummy_source_seal.clone().into());
         processor.process(verifiable_vrt.clone())?;
 
         // Check management state.

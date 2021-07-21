@@ -1,6 +1,6 @@
 use crate::{
     error::Error,
-    event::vc_event::{EventType, VCEvent},
+    event::vc_event::{VCEventType, VCEvent},
 };
 use serde::{Deserialize, Serialize};
 
@@ -15,11 +15,11 @@ pub enum TelState {
 impl TelState {
     pub fn apply(&self, event: &VCEvent) -> Result<Self, Error> {
         match event.event_type.clone() {
-            EventType::Bis(_iss) => match self {
+            VCEventType::Bis(_iss) => match self {
                 TelState::NotIsuued => Ok(TelState::Issued(event.serialize()?)),
                 _ => Err(Error::Generic("Wrong state".into())),
             },
-            EventType::Brv(rev) => match self {
+            VCEventType::Brv(rev) => match self {
                 TelState::Issued(last) => {
                     if rev.prev_event_hash.verify_binding(last) {
                         Ok(TelState::Revoked)
@@ -29,11 +29,11 @@ impl TelState {
                 }
                 _ => Err(Error::Generic("Wrong state".into())),
             },
-            EventType::Iss(_iss) => match self {
+            VCEventType::Iss(_iss) => match self {
                 TelState::NotIsuued => Ok(TelState::Issued(event.serialize()?)),
                 _ => Err(Error::Generic("Wrong state".into())),
             },
-            EventType::Rev(rev) => match self {
+            VCEventType::Rev(rev) => match self {
                 TelState::Issued(last) => {
                     if rev.prev_event_hash.verify_binding(last) {
                         Ok(TelState::Revoked)
@@ -70,7 +70,7 @@ fn test_apply() -> Result<(), Error> {
 
     if let TelState::Issued(last) = state.clone() {
         match brv_ev.event.event_type {
-            EventType::Brv(ref brv) => assert!(brv.prev_event_hash.verify_binding(&last)),
+            VCEventType::Brv(ref brv) => assert!(brv.prev_event_hash.verify_binding(&last)),
             _ => (),
         };
     }

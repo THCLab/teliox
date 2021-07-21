@@ -8,7 +8,8 @@ use crate::{
     error::Error,
     event::{
         manager_event::{Config, Inc, ManagerEventType, ManagerTelEvent, Rot},
-        vc_event::{EventType, Issuance, Revocation, VCEvent},
+        vc_event::{VCEventType, Issuance, Revocation, VCEvent},
+        Event,
     },
     state::ManagerTelState,
 };
@@ -20,14 +21,17 @@ pub fn make_inception_event(
     backers: Vec<IdentifierPrefix>,
     derivation: &SelfAddressing,
     serialization_format: &SerializationFormats,
-) -> Result<ManagerTelEvent, Error> {
+) -> Result<Event, Error> {
     let event_type = Inc {
         issuer_id: issuer_prefix,
         config,
         backer_threshold,
         backers,
     };
-    event_type.incept_self_addressing(&derivation, serialization_format.to_owned())
+    Ok(Event::Management(event_type.incept_self_addressing(
+        &derivation,
+        serialization_format.to_owned(),
+    )?))
 }
 
 pub fn make_rotation_event(
@@ -36,18 +40,18 @@ pub fn make_rotation_event(
     br: &[IdentifierPrefix],
     derivation: &SelfAddressing,
     serialization_format: &SerializationFormats,
-) -> Result<ManagerTelEvent, Error> {
+) -> Result<Event, Error> {
     let rot_data = Rot {
         prev_event: derivation.derive(&state.last),
         backers_to_add: ba.to_vec(),
         backers_to_remove: br.to_vec(),
     };
-    ManagerTelEvent::new(
+    Ok(Event::Management(ManagerTelEvent::new(
         &state.prefix,
         state.sn + 1,
         ManagerEventType::Vrt(rot_data),
         serialization_format.to_owned(),
-    )
+    )?))
 }
 
 pub fn make_issuance_event(
@@ -55,15 +59,20 @@ pub fn make_issuance_event(
     vc_hash: SelfAddressingPrefix,
     derivation: &SelfAddressing,
     serialization_format: &SerializationFormats,
-) -> Result<VCEvent, Error> {
+) -> Result<Event, Error> {
     let registry_anchor = EventSeal {
         prefix: state.prefix.clone(),
         sn: state.sn,
         event_digest: derivation.derive(&state.last),
     };
-    let iss = EventType::Bis(Issuance::new(registry_anchor));
+    let iss = VCEventType::Bis(Issuance::new(registry_anchor));
     let vc_prefix = IdentifierPrefix::SelfAddressing(vc_hash);
-    VCEvent::new(vc_prefix.clone(), 0, iss, serialization_format.to_owned())
+    Ok(Event::Vc(VCEvent::new(
+        vc_prefix.clone(),
+        0,
+        iss,
+        serialization_format.to_owned(),
+    )?))
 }
 
 pub fn make_revoke_event(
@@ -72,16 +81,21 @@ pub fn make_revoke_event(
     state: &ManagerTelState,
     derivation: &SelfAddressing,
     serialization_format: &SerializationFormats,
-) -> Result<VCEvent, Error> {
+) -> Result<Event, Error> {
     let registry_anchor = EventSeal {
         prefix: state.prefix.to_owned(),
         sn: state.sn,
         event_digest: derivation.derive(&state.last),
     };
-    let rev = EventType::Brv(Revocation {
+    let rev = VCEventType::Brv(Revocation {
         prev_event_hash: last_vc_event,
         registry_anchor: Some(registry_anchor),
     });
     let vc_prefix = IdentifierPrefix::SelfAddressing(vc_hash.to_owned());
-    VCEvent::new(vc_prefix, 0, rev, serialization_format.to_owned())
+    Ok(Event::Vc(VCEvent::new(
+        vc_prefix,
+        0,
+        rev,
+        serialization_format.to_owned(),
+    )?))
 }

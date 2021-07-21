@@ -67,14 +67,14 @@ pub struct VCEvent {
     pub sn: u64,
 
     #[serde(flatten)]
-    pub event_type: EventType,
+    pub event_type: VCEventType,
 }
 
 impl VCEvent {
     pub fn new(
         prefix: IdentifierPrefix,
         sn: u64,
-        event_type: EventType,
+        event_type: VCEventType,
         format: SerializationFormats,
     ) -> Result<Self, Error> {
         let size = Self {
@@ -107,7 +107,7 @@ impl VCEvent {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "t", rename_all = "lowercase")]
-pub enum EventType {
+pub enum VCEventType {
     Iss(SimpleIssuance),
     Rev(SimpleRevocation),
     Bis(Issuance),

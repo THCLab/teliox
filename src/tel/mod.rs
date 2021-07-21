@@ -1,9 +1,9 @@
 use crate::{
     database::EventDatabase,
     error::Error,
-    event::manager_event::{Config, ManagerTelEvent},
-    event::vc_event::VCEvent,
+    event::manager_event::Config,
     event::verifiable_event::VerifiableEvent,
+    event::Event,
     processor::EventProcessor,
     state::{vc_state::TelState, ManagerTelState, State},
 };
@@ -42,7 +42,7 @@ impl<'d> Tel<'d> {
         config: Vec<Config>,
         backer_threshold: u64,
         backers: Vec<IdentifierPrefix>,
-    ) -> Result<ManagerTelEvent, Error> {
+    ) -> Result<Event, Error> {
         event_generator::make_inception_event(
             issuer_prefix,
             config,
@@ -57,7 +57,7 @@ impl<'d> Tel<'d> {
         &self,
         ba: &[IdentifierPrefix],
         br: &[IdentifierPrefix],
-    ) -> Result<ManagerTelEvent, Error> {
+    ) -> Result<Event, Error> {
         event_generator::make_rotation_event(
             &self.get_management_tel_state()?,
             ba,
@@ -67,7 +67,7 @@ impl<'d> Tel<'d> {
         )
     }
 
-    pub fn make_issuance_event(&self, vc: &str) -> Result<VCEvent, Error> {
+    pub fn make_issuance_event(&self, vc: &str) -> Result<Event, Error> {
         let vc_hash = self.derivation.derive(vc.as_bytes());
         event_generator::make_issuance_event(
             &self.get_management_tel_state()?,
@@ -77,7 +77,7 @@ impl<'d> Tel<'d> {
         )
     }
 
-    pub fn make_revoke_event(&self, vc: &SelfAddressingPrefix) -> Result<VCEvent, Error> {
+    pub fn make_revoke_event(&self, vc: &SelfAddressingPrefix) -> Result<Event, Error> {
         let vc_state = self.get_vc_state(vc)?;
         let last = match vc_state {
             TelState::Issued(last) => self.derivation.derive(&last),
@@ -124,11 +124,8 @@ mod tests {
     use keri::{derivation::self_addressing::SelfAddressing, event::SerializationFormats};
 
     use crate::{
-        error::Error,
-        event::{verifiable_event::VerifiableEvent, Event},
-        seal::EventSourceSeal,
-        state::State,
-        tel::Tel,
+        error::Error, event::verifiable_event::VerifiableEvent, seal::EventSourceSeal,
+        state::State, tel::Tel,
     };
 
     #[test]
@@ -152,17 +149,13 @@ mod tests {
         };
 
         let vcp = tel.make_inception_event(issuer_prefix, vec![], 0, vec![])?;
-        let verifiable_vcp = VerifiableEvent::new(
-            Event::Management(vcp.clone()),
-            dummy_source_seal.clone().into(),
-        );
+        let verifiable_vcp = VerifiableEvent::new(vcp.clone(), dummy_source_seal.clone().into());
         let processing_output = tel.process(verifiable_vcp.clone());
         assert!(processing_output.is_ok());
 
         let backers_to_add = vec!["EJJR2nmwyYAfSVPzhzS6b5CMZAoTNZH3ULvaU6Z-i0d8".parse()?];
         let rcp = tel.make_rotation_event(&backers_to_add, &vec![])?;
-        let verifiable_rcp =
-            VerifiableEvent::new(Event::Management(rcp.clone()), dummy_source_seal.into());
+        let verifiable_rcp = VerifiableEvent::new(rcp.clone(), dummy_source_seal.into());
         let processing_output = tel.process(verifiable_rcp.clone());
         assert!(processing_output.is_ok());
         if let State::Management(man) = processing_output.unwrap() {
