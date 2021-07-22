@@ -9,7 +9,6 @@ use crate::{
 };
 use keri::{
     derivation::self_addressing::SelfAddressing,
-    event::SerializationFormats,
     prefix::{IdentifierPrefix, SelfAddressingPrefix},
 };
 
@@ -17,22 +16,16 @@ pub mod event_generator;
 
 pub struct Tel<'d> {
     pub processor: EventProcessor<'d>,
-    serialization_format: SerializationFormats,
-    derivation: SelfAddressing,
     tel_prefix: IdentifierPrefix,
 }
 
 impl<'d> Tel<'d> {
     pub fn new(
         db: &'d EventDatabase,
-        serialization_format: SerializationFormats,
-        derivation: SelfAddressing,
     ) -> Self {
         Self {
             processor: EventProcessor::new(db),
             tel_prefix: IdentifierPrefix::default(),
-            serialization_format,
-            derivation,
         }
     }
 
@@ -48,8 +41,8 @@ impl<'d> Tel<'d> {
             config,
             backer_threshold,
             backers,
-            &self.derivation,
-            &self.serialization_format,
+            None,
+            None,
         )
     }
 
@@ -62,33 +55,33 @@ impl<'d> Tel<'d> {
             &self.get_management_tel_state()?,
             ba,
             br,
-            &self.derivation,
-            &self.serialization_format,
+            None,
+            None,
         )
     }
 
-    pub fn make_issuance_event(&self, vc: &str) -> Result<Event, Error> {
-        let vc_hash = self.derivation.derive(vc.as_bytes());
+    pub fn make_issuance_event(&self,  derivation: SelfAddressing, vc: &str) -> Result<Event, Error> {
+        let vc_hash = derivation.derive(vc.as_bytes());
         event_generator::make_issuance_event(
             &self.get_management_tel_state()?,
             vc_hash,
-            &self.derivation,
-            &self.serialization_format,
+            None,
+            None,
         )
     }
 
     pub fn make_revoke_event(&self, vc: &SelfAddressingPrefix) -> Result<Event, Error> {
         let vc_state = self.get_vc_state(vc)?;
         let last = match vc_state {
-            TelState::Issued(last) => self.derivation.derive(&last),
+            TelState::Issued(last) => last,
             _ => return Err(Error::Generic("Inproper vc state".into())),
         };
         event_generator::make_revoke_event(
             vc,
-            last,
+            &last,
             &self.get_management_tel_state()?,
-            &self.derivation,
-            &self.serialization_format,
+            None,
+            None,
         )
     }
 
@@ -121,8 +114,6 @@ impl<'d> Tel<'d> {
 mod tests {
     use std::fs;
 
-    use keri::{derivation::self_addressing::SelfAddressing, event::SerializationFormats};
-
     use crate::{
         error::Error, event::verifiable_event::VerifiableEvent, seal::EventSourceSeal,
         state::State, tel::Tel,
@@ -140,8 +131,6 @@ mod tests {
         // Create tel
         let mut tel = Tel::new(
             &tel_db,
-            SerializationFormats::JSON,
-            SelfAddressing::Blake3_256,
         );
         let dummy_source_seal = EventSourceSeal {
             sn: 1,

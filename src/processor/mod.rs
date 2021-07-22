@@ -109,7 +109,7 @@ impl<'d> EventProcessor<'d> {
 #[cfg(test)]
 mod tests {
     use keri::{
-        derivation::self_addressing::SelfAddressing, event::SerializationFormats,
+        derivation::self_addressing::SelfAddressing,
         prefix::IdentifierPrefix,
     };
 
@@ -137,8 +137,6 @@ mod tests {
         let message_id = SelfAddressing::Blake3_256.derive(message.as_bytes());
         let issuer_prefix: IdentifierPrefix =
             "EaKJ0FoLxO1TYmyuprguKO7kJ7Hbn0m0Wuk5aMtSrMtY".parse()?;
-        let derivation = SelfAddressing::Blake3_256;
-        let serialization = SerializationFormats::JSON;
         let dummy_source_seal = EventSourceSeal {
             sn: 1,
             digest: "EJJR2nmwyYAfSVPzhzS6b5CMZAoTNZH3ULvaU6Z-i0d8".parse()?,
@@ -149,8 +147,8 @@ mod tests {
             vec![],
             0,
             vec![],
-            &derivation,
-            &serialization,
+            None,
+            None,
         )?;
 
         let management_tel_prefix = vcp.get_prefix(); 
@@ -174,8 +172,8 @@ mod tests {
         let iss_event = event_generator::make_issuance_event(
             &st,
             message_id.clone(),
-            &derivation,
-            &serialization,
+            None,
+            None,
         )?;
 
         let verifiable_iss =
@@ -197,10 +195,10 @@ mod tests {
         // Create revocation event.
         let rev_event = event_generator::make_revoke_event(
             &message_id,
-            derivation.clone().derive(&last),
+            &last,
             &st,
-            &derivation,
-            &serialization,
+            None,
+            None,
         )?;
 
         let verifiable_rev =
@@ -223,8 +221,8 @@ mod tests {
             &st,
             &backers,
             &vec![],
-            &derivation,
-            &serialization,
+            None,
+            None,
         )?;
 
         let verifiable_vrt = VerifiableEvent::new(vrt.clone(), dummy_source_seal.clone().into());
