@@ -53,16 +53,19 @@ impl<'d> EventProcessor<'d> {
     // Process verifiable event. It doesn't check if source seal is correct. Just add event to tel.
     pub fn process(&self, event: VerifiableEvent) -> Result<State, Error> {
         match &event.event.clone() {
-            Event::Management(ref man) => {
-                self.db.add_new_management_event(event, &man.prefix)?;
-                Ok(State::Management(
-                    self.get_management_tel_state(&man.prefix)?,
-                ))
-            }
-            Event::Vc(ref vc_ev) => {
-                self.db.add_new_event(event, &vc_ev.prefix)?;
-                Ok(State::Tel(self.get_vc_state(&vc_ev.prefix)?))
-            }
+            Event::Management(ref man) => self
+                .get_management_tel_state(&man.prefix)?
+                .apply(man)
+                .map(|state| {
+                    self.db
+                        .add_new_management_event(event, &man.prefix)
+                        .unwrap();
+                    State::Management(state)
+                }),
+            Event::Vc(ref vc_ev) => self.get_vc_state(&vc_ev.prefix)?.apply(vc_ev).map(|state| {
+                self.db.add_new_event(event, &vc_ev.prefix).unwrap();
+                State::Tel(state)
+            }),
         }
     }
 
@@ -108,18 +111,11 @@ impl<'d> EventProcessor<'d> {
 
 #[cfg(test)]
 mod tests {
-    use keri::{
-        derivation::self_addressing::SelfAddressing,
-        prefix::IdentifierPrefix,
-    };
+    use keri::{derivation::self_addressing::SelfAddressing, prefix::IdentifierPrefix};
 
     use crate::{
-        error::Error,
-        event::verifiable_event::VerifiableEvent,
-        processor::EventProcessor,
-        seal::EventSourceSeal,
-        state::vc_state::TelState,
-        tel::event_generator,
+        error::Error, event::verifiable_event::VerifiableEvent, processor::EventProcessor,
+        seal::EventSourceSeal, state::vc_state::TelState, tel::event_generator,
     };
 
     #[test]
@@ -142,16 +138,10 @@ mod tests {
             digest: "EJJR2nmwyYAfSVPzhzS6b5CMZAoTNZH3ULvaU6Z-i0d8".parse()?,
         };
 
-        let vcp = event_generator::make_inception_event(
-            issuer_prefix,
-            vec![],
-            0,
-            vec![],
-            None,
-            None,
-        )?;
+        let vcp =
+            event_generator::make_inception_event(issuer_prefix, vec![], 0, vec![], None, None)?;
 
-        let management_tel_prefix = vcp.get_prefix(); 
+        let management_tel_prefix = vcp.get_prefix();
 
         // before applying vcp to management tel, insert anchor event seal.
         // note: source seal isn't check while event processing.
@@ -169,12 +159,7 @@ mod tests {
 
         // create issue event
         let vc_prefix = IdentifierPrefix::SelfAddressing(message_id.clone());
-        let iss_event = event_generator::make_issuance_event(
-            &st,
-            message_id.clone(),
-            None,
-            None,
-        )?;
+        let iss_event = event_generator::make_issuance_event(&st, message_id.clone(), None, None)?;
 
         let verifiable_iss =
             VerifiableEvent::new(iss_event.clone(), dummy_source_seal.clone().into());
@@ -193,13 +178,7 @@ mod tests {
         };
 
         // Create revocation event.
-        let rev_event = event_generator::make_revoke_event(
-            &message_id,
-            &last,
-            &st,
-            None,
-            None,
-        )?;
+        let rev_event = event_generator::make_revoke_event(&message_id, &last, &st, None, None)?;
 
         let verifiable_rev =
             VerifiableEvent::new(rev_event.clone(), dummy_source_seal.clone().into());
@@ -217,13 +196,7 @@ mod tests {
         let backers: Vec<IdentifierPrefix> =
             vec!["BwFbQvUaS4EirvZVPUav7R_KDHB8AKmSfXNpWnZU_YEU".parse()?];
 
-        let vrt = event_generator::make_rotation_event(
-            &st,
-            &backers,
-            &vec![],
-            None,
-            None,
-        )?;
+        let vrt = event_generator::make_rotation_event(&st, &backers, &vec![], None, None)?;
 
         let verifiable_vrt = VerifiableEvent::new(vrt.clone(), dummy_source_seal.clone().into());
         processor.process(verifiable_vrt.clone())?;

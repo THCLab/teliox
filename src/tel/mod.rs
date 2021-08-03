@@ -20,9 +20,7 @@ pub struct Tel<'d> {
 }
 
 impl<'d> Tel<'d> {
-    pub fn new(
-        db: &'d EventDatabase,
-    ) -> Self {
+    pub fn new(db: &'d EventDatabase) -> Self {
         Self {
             processor: EventProcessor::new(db),
             tel_prefix: IdentifierPrefix::default(),
@@ -51,23 +49,16 @@ impl<'d> Tel<'d> {
         ba: &[IdentifierPrefix],
         br: &[IdentifierPrefix],
     ) -> Result<Event, Error> {
-        event_generator::make_rotation_event(
-            &self.get_management_tel_state()?,
-            ba,
-            br,
-            None,
-            None,
-        )
+        event_generator::make_rotation_event(&self.get_management_tel_state()?, ba, br, None, None)
     }
 
-    pub fn make_issuance_event(&self,  derivation: SelfAddressing, vc: &str) -> Result<Event, Error> {
+    pub fn make_issuance_event(
+        &self,
+        derivation: SelfAddressing,
+        vc: &str,
+    ) -> Result<Event, Error> {
         let vc_hash = derivation.derive(vc.as_bytes());
-        event_generator::make_issuance_event(
-            &self.get_management_tel_state()?,
-            vc_hash,
-            None,
-            None,
-        )
+        event_generator::make_issuance_event(&self.get_management_tel_state()?, vc_hash, None, None)
     }
 
     pub fn make_revoke_event(&self, vc: &SelfAddressingPrefix) -> Result<Event, Error> {
@@ -76,13 +67,7 @@ impl<'d> Tel<'d> {
             TelState::Issued(last) => last,
             _ => return Err(Error::Generic("Inproper vc state".into())),
         };
-        event_generator::make_revoke_event(
-            vc,
-            &last,
-            &self.get_management_tel_state()?,
-            None,
-            None,
-        )
+        event_generator::make_revoke_event(vc, &last, &self.get_management_tel_state()?, None, None)
     }
 
     // Process verifiable event. It doesn't check if source seal is correct. Just add event to tel.
@@ -129,9 +114,7 @@ mod tests {
         let issuer_prefix = "DpE03it33djytuVvXhSbZdEw0lx7Xa-olrlUUSH2Ykvc".parse()?;
 
         // Create tel
-        let mut tel = Tel::new(
-            &tel_db,
-        );
+        let mut tel = Tel::new(&tel_db);
         let dummy_source_seal = EventSourceSeal {
             sn: 1,
             digest: "EJJR2nmwyYAfSVPzhzS6b5CMZAoTNZH3ULvaU6Z-i0d8".parse()?,

@@ -1,6 +1,6 @@
 use crate::{
     error::Error,
-    event::vc_event::{VCEventType, VCEvent},
+    event::vc_event::{VCEvent, VCEventType},
 };
 use serde::{Deserialize, Serialize};
 
@@ -16,12 +16,18 @@ impl TelState {
     pub fn apply(&self, event: &VCEvent) -> Result<Self, Error> {
         match event.event_type.clone() {
             VCEventType::Bis(_iss) => match self {
-                TelState::NotIsuued => Ok(TelState::Issued(event.serialize()?)),
+                TelState::NotIsuued => {
+                    if event.sn == 0 {
+                        Ok(TelState::Issued(event.serialize()?))
+                    } else {
+                        Err(Error::Generic("Wrong sn".into()))
+                    }
+                }
                 _ => Err(Error::Generic("Wrong state".into())),
             },
             VCEventType::Brv(rev) => match self {
                 TelState::Issued(last) => {
-                    if rev.prev_event_hash.verify_binding(last) {
+                    if rev.prev_event_hash.verify_binding(last) && event.sn == 1 {
                         Ok(TelState::Revoked)
                     } else {
                         Err(Error::Generic("Previous event doesn't match".to_string()))
