@@ -1,5 +1,5 @@
 use base64::URL_SAFE;
-use keri::prefix::parse::self_addressing_prefix;
+use keri::event_parsing::prefix::self_addressing_prefix;
 use nom::{bytes::complete::take, error::ErrorKind};
 
 use crate::{error::Error, seal::EventSourceSeal};
