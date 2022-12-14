@@ -6,3 +6,10 @@ TEL proposed here is a issuance revocation state machine, which constists of thr
 * `NULL` -- given member does not exist yet in the registry;
 * `issued` -- given member declares it is present/issued;
 * `revoked` -- given member declares it is removed/revoked.
+
+
+## License
+
+EUPL 1.2 
+
+We have distilled the most crucial license specifics to make your adoption seamless: [see here for details](https://github.com/THCLab/licensing).
